@@ -1,0 +1,36 @@
+import axios from 'axios'
+import { clearSession, isTokenExpired } from '@/utils/session'
+
+const http = axios.create({
+  baseURL: '/api',
+  timeout: 15000
+})
+
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    if (isTokenExpired()) {
+      clearSession('登录状态已过期，请重新登录')
+      window.location.href = '/login'
+      return Promise.reject(new Error('token expired'))
+    }
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      clearSession('登录状态已过期，请重新登录')
+      window.location.href = '/login'
+    }
+    if (error.response?.status === 403) {
+      sessionStorage.setItem('authMessage', '当前账号没有权限执行该操作')
+    }
+    return Promise.reject(error)
+  }
+)
+
+export default http
