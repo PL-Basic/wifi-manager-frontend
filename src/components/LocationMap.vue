@@ -57,19 +57,6 @@ const centerText = computed(() => {
   if (!latest.value) return '暂无定位'
   return `${latest.value.lat.toFixed(6)}, ${latest.value.lng.toFixed(6)}`
 })
-const osmFrameUrl = computed(() => {
-  if (!latest.value) return ''
-  const delta = 0.01
-  const left = latest.value.lng - delta
-  const right = latest.value.lng + delta
-  const bottom = latest.value.lat - delta
-  const top = latest.value.lat + delta
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${latest.value.lat}%2C${latest.value.lng}`
-})
-const osmLink = computed(() => {
-  if (!latest.value) return ''
-  return `https://www.openstreetmap.org/?mlat=${latest.value.lat}&mlon=${latest.value.lng}#map=16/${latest.value.lat}/${latest.value.lng}`
-})
 
 function formatTime(value) {
   if (!value) return '-'
@@ -124,15 +111,20 @@ function formatTime(value) {
       </aside>
     </div>
 
-    <section v-if="latest" class="real-map-panel">
+    <section class="algorithm-map-panel">
       <header>
         <div>
-          <span>真实地图底图</span>
-          <strong>OpenStreetMap</strong>
+          <span>算法地图预留区</span>
+          <strong>{{ latest ? '等待自研定位算法接入' : '暂无可计算坐标' }}</strong>
         </div>
-        <a :href="osmLink" target="_blank" rel="noreferrer">打开地图</a>
+        <em>Reserved</em>
       </header>
-      <iframe :src="osmFrameUrl" title="真实地图定位" loading="lazy"></iframe>
+      <div class="algorithm-map-stage">
+        <div class="algorithm-orbit">
+          <i v-for="point in points.slice(0, 8)" :key="point.id || `${point.mac}-${point.index}`" :style="{ left: `${point.x}%`, top: `${point.y}%` }"></i>
+        </div>
+        <p>这里后续承载你自己的地图/路径/定位算法输出，当前先保留同一套星空玻璃风格和坐标锚点。</p>
+      </div>
     </section>
   </section>
 </template>
