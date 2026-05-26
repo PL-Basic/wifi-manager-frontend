@@ -100,12 +100,20 @@ export function getAlerts(params) {
   return http.get('/admin/alerts', { params })
 }
 
+export function getAlert(id) {
+  return http.get(`/admin/alerts/${id}`)
+}
+
 export function handleAlert(id, handleUserId) {
   return http.patch(`/admin/alerts/${id}/handle`, null, { params: { handleUserId } })
 }
 
 export function getAudits(params) {
   return http.get('/admin/audits', { params })
+}
+
+export function getAudit(id) {
+  return http.get(`/admin/audits/${id}`)
 }
 
 export function getMyLocations(params) {
@@ -118,4 +126,10 @@ export function getMyProfile(userId) {
 
 export function updateMyProfile(userId, data) {
   return http.put(`/users/${userId}`, data)
+}
+
+export function uploadAvatar(userId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post(`/users/${userId}/avatar`, formData)
 }

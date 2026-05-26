@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import LocationMap from '@/components/LocationMap.vue'
 import StateBlock from '@/components/StateBlock.vue'
-import { getMyLocations, getMyProfile, updateMyProfile } from '@/api/admin'
-import { readAvatarFile } from '@/utils/avatar'
+import { getMyLocations, getMyProfile, updateMyProfile, uploadAvatar } from '@/api/admin'
+import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
 import { parseTokenPayload, syncSessionUser } from '@/utils/session'
 
 const router = useRouter()
@@ -34,6 +34,10 @@ function formatTime(value) {
 
 function initials() {
   return (profile.nickname || profile.username || 'U').slice(0, 1).toUpperCase()
+}
+
+function avatarSrc(value) {
+  return resolveAvatarUrl(value)
 }
 
 function logout() {
@@ -93,11 +97,22 @@ async function saveProfile() {
 
 async function chooseAvatar(event) {
   message.value = ''
+  saving.value = true
   try {
-    profile.avatar = await readAvatarFile(event.target.files?.[0])
+    const file = event.target.files?.[0]
+    if (!validateAvatarFile(file)) return
+    const { data } = await uploadAvatar(userId.value, file)
+    if (data.code === 200) {
+      profile.avatar = data.data?.url || ''
+      syncSessionUser(profile)
+      message.value = '头像上传成功'
+    } else {
+      message.value = data.message || '头像上传失败'
+    }
   } catch (error) {
-    message.value = error.message
+    message.value = error.response?.data?.message || error.message || '头像上传失败'
   } finally {
+    saving.value = false
     event.target.value = ''
   }
 }
@@ -136,7 +151,7 @@ onMounted(loadData)
           <form class="profile-panel glass-panel" @submit.prevent="saveProfile">
             <div class="avatar-editor">
               <div class="avatar-preview">
-                <img v-if="profile.avatar" :src="profile.avatar" alt="头像预览" />
+                <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" alt="头像预览" />
                 <span v-else>{{ initials() }}</span>
               </div>
               <div>

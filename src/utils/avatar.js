@@ -1,22 +1,20 @@
-const MAX_AVATAR_SIZE = 180 * 1024
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024
 
-export function readAvatarFile(file) {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve('')
-      return
-    }
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('请选择图片文件'))
-      return
-    }
-    if (file.size > MAX_AVATAR_SIZE) {
-      reject(new Error('头像图片不能超过 180KB'))
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(new Error('头像读取失败'))
-    reader.readAsDataURL(file)
-  })
+export function validateAvatarFile(file) {
+  if (!file) return false
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please select an image file')
+  }
+  if (file.size > MAX_AVATAR_SIZE) {
+    throw new Error('Avatar image cannot exceed 2MB')
+  }
+  return true
+}
+
+export function resolveAvatarUrl(url) {
+  if (!url) return ''
+  if (/^(https?:|data:|blob:)/i.test(url)) return url
+  if (url.startsWith('/api/')) return url
+  if (url.startsWith('/')) return `/api${url}`
+  return url
 }

@@ -5,7 +5,7 @@ import StarrySky from '@/components/StarrySky.vue'
 import LocationMap from '@/components/LocationMap.vue'
 import StateBlock from '@/components/StateBlock.vue'
 import { clearSession, parseTokenPayload, syncSessionUser } from '@/utils/session'
-import { readAvatarFile } from '@/utils/avatar'
+import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
 import {
   addBlacklist,
   allowDevice,
@@ -13,7 +13,9 @@ import {
   deleteRule,
   deleteUser,
   getMyProfile,
+  getAlert,
   getAlerts,
+  getAudit,
   getAudits,
   getBlacklist,
   getDashboard,
@@ -34,7 +36,8 @@ import {
   updateMyProfile,
   updateRule,
   updateUser,
-  updateUserStatus
+  updateUserStatus,
+  uploadAvatar
 } from '@/api/admin'
 
 const router = useRouter()
@@ -68,7 +71,7 @@ const userForm = reactive({
   expireTime: ''
 })
 const editingRule = ref(false)
-const detailDrawer = reactive({ open: false, title: '', row: null, fields: [] })
+const detailDrawer = reactive({ open: false, title: '', row: null, fields: [], loading: false })
 const ruleForm = reactive({
   id: '',
   ruleCode: '',
@@ -201,6 +204,10 @@ function initials() {
   return (profile.nickname || profile.username || username || 'A').slice(0, 1).toUpperCase()
 }
 
+function avatarSrc(value) {
+  return resolveAvatarUrl(value)
+}
+
 function normalizePage(data) {
   const page = data?.data || data || {}
   pager.current = page.current || 1
@@ -318,11 +325,22 @@ async function saveProfile() {
 
 async function chooseProfileAvatar(event) {
   message.value = ''
+  saving.value = true
   try {
-    profile.avatar = await readAvatarFile(event.target.files?.[0])
+    const file = event.target.files?.[0]
+    if (!validateAvatarFile(file)) return
+    const { data } = await uploadAvatar(profile.userId || getCurrentUserId(), file)
+    if (data.code === 200) {
+      profile.avatar = data.data?.url || ''
+      syncSessionUser(profile)
+      message.value = '头像上传成功'
+    } else {
+      message.value = data.message || '头像上传失败'
+    }
   } catch (error) {
-    message.value = error.message
+    message.value = error.response?.data?.message || error.message || '头像上传失败'
   } finally {
+    saving.value = false
     event.target.value = ''
   }
 }
@@ -409,11 +427,21 @@ function closeUserEditor() {
 
 async function chooseUserAvatar(event) {
   message.value = ''
+  saving.value = true
   try {
-    userForm.avatar = await readAvatarFile(event.target.files?.[0])
+    const file = event.target.files?.[0]
+    if (!validateAvatarFile(file)) return
+    const { data } = await uploadAvatar(userForm.userId, file)
+    if (data.code === 200) {
+      userForm.avatar = data.data?.url || ''
+      message.value = '头像上传成功'
+    } else {
+      message.value = data.message || '头像上传失败'
+    }
   } catch (error) {
-    message.value = error.message
+    message.value = error.response?.data?.message || error.message || '头像上传失败'
   } finally {
+    saving.value = false
     event.target.value = ''
   }
 }
@@ -465,17 +493,33 @@ function closeRuleEditor() {
   editingRule.value = false
 }
 
-function openDetail(row, tab = activeTab.value) {
+async function openDetail(row, tab = activeTab.value) {
   detailDrawer.open = true
   detailDrawer.title = `${tableTitle.value}详情`
   detailDrawer.row = row
   detailDrawer.fields = detailFields[tab] || currentColumns.value
+  if (!['alerts', 'audits'].includes(tab) || !row?.id) return
+
+  detailDrawer.loading = true
+  try {
+    const { data } = tab === 'alerts' ? await getAlert(row.id) : await getAudit(row.id)
+    if (data.code === 200) {
+      detailDrawer.row = data.data || row
+    } else {
+      message.value = data.message || '详情加载失败'
+    }
+  } catch (error) {
+    message.value = error.response?.data?.message || '详情加载失败'
+  } finally {
+    detailDrawer.loading = false
+  }
 }
 
 function closeDetail() {
   detailDrawer.open = false
   detailDrawer.row = null
   detailDrawer.fields = []
+  detailDrawer.loading = false
 }
 
 async function submitRuleEditor() {
@@ -685,7 +729,7 @@ onBeforeUnmount(disconnectAlertSocket)
           <form class="profile-panel glass-panel" @submit.prevent="saveProfile">
             <div class="avatar-editor">
               <div class="avatar-preview">
-                <img v-if="profile.avatar" :src="profile.avatar" alt="头像预览" />
+                <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" alt="头像预览" />
                 <span v-else>{{ initials() }}</span>
               </div>
               <div>
@@ -849,7 +893,7 @@ onBeforeUnmount(disconnectAlertSocket)
         </header>
         <div class="avatar-editor compact-avatar">
           <div class="avatar-preview">
-            <img v-if="userForm.avatar" :src="userForm.avatar" alt="头像预览" />
+            <img v-if="userForm.avatar" :src="avatarSrc(userForm.avatar)" alt="头像预览" />
             <span v-else>{{ (userForm.nickname || userForm.username || 'U').slice(0, 1).toUpperCase() }}</span>
           </div>
           <div>
@@ -969,6 +1013,7 @@ onBeforeUnmount(disconnectAlertSocket)
           </div>
           <button class="secondary-button compact-button" type="button" @click="closeDetail">关闭</button>
         </header>
+        <StateBlock v-if="detailDrawer.loading" type="loading" title="正在加载" text="正在同步详情数据" />
         <dl class="detail-list">
           <template v-for="field in detailDrawer.fields" :key="field[0]">
             <dt>{{ field[1] }}</dt>
