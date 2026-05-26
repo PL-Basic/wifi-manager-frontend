@@ -325,6 +325,13 @@ button:disabled {
   color: #991b1b;
 }
 
+.field-error {
+  display: block;
+  margin-top: 6px;
+  color: #fecaca;
+  font-size: 12px;
+}
+
 .link {
   display: inline-block;
   margin-top: 14px;

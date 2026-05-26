@@ -16,6 +16,7 @@ const form = reactive({
 const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
+const confirmPasswordError = ref('')
 
 function showError(text) {
   message.value = text
@@ -27,7 +28,21 @@ function showSuccess(text) {
   messageType.value = 'success'
 }
 
+function validateConfirmPassword() {
+  if (!form.confirmPassword) {
+    confirmPasswordError.value = ''
+    return true
+  }
+  if (form.password !== form.confirmPassword) {
+    confirmPasswordError.value = '两次输入的密码不一致'
+    return false
+  }
+  confirmPasswordError.value = ''
+  return true
+}
+
 async function handleRegister() {
+  validateConfirmPassword()
   if (!form.username.trim() || !form.password || !form.nickname.trim()) {
     showError('请输入用户名、密码和昵称')
     return
@@ -99,7 +114,15 @@ async function handleRegister() {
 
             <label>
               <span>确认密码</span>
-              <input v-model="form.confirmPassword" type="password" autocomplete="new-password" placeholder="再次输入" />
+              <input
+                v-model="form.confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                placeholder="再次输入"
+                @blur="validateConfirmPassword"
+                @input="validateConfirmPassword"
+              />
+              <small v-if="confirmPasswordError" class="field-error">{{ confirmPasswordError }}</small>
             </label>
           </div>
 
