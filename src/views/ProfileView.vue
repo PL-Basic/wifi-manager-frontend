@@ -6,14 +6,13 @@ import LocationMap from '@/components/LocationMap.vue'
 import StateBlock from '@/components/StateBlock.vue'
 import { getMyLocations, getMyProfile, updateMyProfile, uploadAvatar } from '@/api/admin'
 import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
-import { parseTokenPayload, syncSessionUser } from '@/utils/session'
+import { clearSession, parseTokenPayload, syncSessionUser } from '@/utils/session'
 
 const router = useRouter()
-const token = localStorage.getItem('token') || ''
 const activeTab = ref('profile')
 const profile = reactive({
   userId: '',
-  username: localStorage.getItem('username') || '',
+  username: sessionStorage.getItem('username') || '',
   nickname: '',
   email: '',
   phone: '',
@@ -41,11 +40,13 @@ function avatarSrc(value) {
   return resolveAvatarUrl(value)
 }
 
+function cleanText(value) {
+  const text = typeof value === 'string' ? value.trim() : value
+  return text === '' ? null : text
+}
+
 function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('username')
-  localStorage.removeItem('nickname')
-  localStorage.removeItem('role')
+  clearSession('')
   router.push('/login')
 }
 
@@ -80,10 +81,10 @@ async function saveProfile() {
   messageType.value = 'success'
   try {
     const { data } = await updateMyProfile(userId.value, {
-      nickname: profile.nickname,
-      email: profile.email,
-      phone: profile.phone,
-      avatar: profile.avatar
+      nickname: cleanText(profile.nickname),
+      email: cleanText(profile.email),
+      phone: cleanText(profile.phone),
+      avatar: cleanText(profile.avatar)
     })
     if (data.code === 200) {
       Object.assign(profile, data.data)

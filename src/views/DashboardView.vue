@@ -41,13 +41,14 @@ import {
 } from '@/api/admin'
 
 const router = useRouter()
-const username = localStorage.getItem('nickname') || localStorage.getItem('username') || 'Admin'
-const role = Number(localStorage.getItem('role') || 2)
+const username = sessionStorage.getItem('nickname') || sessionStorage.getItem('username') || 'Admin'
+const role = Number(sessionStorage.getItem('role') || 2)
 const isSuperAdmin = computed(() => role === 0)
 const activeTab = ref('overview')
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
+const modalMessage = ref('')
 const dashboard = ref(null)
 const rows = ref([])
 const alertToasts = ref([])
@@ -82,6 +83,19 @@ const ruleForm = reactive({
   enabled: 1,
   description: ''
 })
+
+const ruleTypeOptions = [
+  { value: 1, label: '域名精确' },
+  { value: 2, label: '域名包含' },
+  { value: 3, label: 'IP 精确' },
+  { value: 4, label: 'SNI 包含' }
+]
+
+const actionTypeOptions = [
+  { value: 1, label: '踢出客户端' },
+  { value: 2, label: '阻断流量' },
+  { value: 3, label: '仅告警' }
+]
 
 const allTabs = [
   { key: 'overview', label: '总览' },
@@ -229,6 +243,20 @@ function avatarSrc(value) {
   return resolveAvatarUrl(value)
 }
 
+function cleanText(value) {
+  const text = typeof value === 'string' ? value.trim() : value
+  return text === '' ? null : text
+}
+
+function rulePatternPlaceholder() {
+  const type = Number(ruleForm.ruleType)
+  if (type === 1) return 'example.com'
+  if (type === 2) return 'example'
+  if (type === 3) return '192.168.1.1'
+  if (type === 4) return 'example'
+  return '匹配值'
+}
+
 function normalizePage(data) {
   const page = data?.data || data || {}
   pager.current = page.current || 1
@@ -238,10 +266,7 @@ function normalizePage(data) {
 }
 
 function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('username')
-  localStorage.removeItem('nickname')
-  localStorage.removeItem('role')
+  clearSession('')
   router.push('/login')
 }
 
@@ -325,10 +350,10 @@ async function saveProfile() {
   message.value = ''
   try {
     const { data } = await updateMyProfile(profile.userId, {
-      nickname: profile.nickname,
-      email: profile.email,
-      phone: profile.phone,
-      avatar: profile.avatar
+      nickname: cleanText(profile.nickname),
+      email: cleanText(profile.email),
+      phone: cleanText(profile.phone),
+      avatar: cleanText(profile.avatar)
     })
     if (data.code === 200) {
       Object.assign(profile, data.data)
@@ -407,6 +432,7 @@ function switchTab(tab) {
   pager.current = 1
   pager.total = 0
   message.value = ''
+  modalMessage.value = ''
   if (tab === 'overview') {
     loadOverview()
   } else if (tab === 'profile') {
@@ -427,6 +453,8 @@ function reset() {
 }
 
 function openUserEditor(row) {
+  message.value = ''
+  modalMessage.value = ''
   Object.assign(userForm, {
     userId: row.userId,
     username: row.username || '',
@@ -444,10 +472,11 @@ function openUserEditor(row) {
 
 function closeUserEditor() {
   editingUser.value = false
+  modalMessage.value = ''
 }
 
 async function chooseUserAvatar(event) {
-  message.value = ''
+  modalMessage.value = ''
   saving.value = true
   try {
     const file = event.target.files?.[0]
@@ -455,12 +484,12 @@ async function chooseUserAvatar(event) {
     const { data } = await uploadAvatar(userForm.userId, file)
     if (data.code === 200) {
       userForm.avatar = data.data?.url || ''
-      message.value = '头像上传成功'
+      modalMessage.value = '头像上传成功'
     } else {
-      message.value = data.message || '头像上传失败'
+      modalMessage.value = data.message || '头像上传失败'
     }
   } catch (error) {
-    message.value = error.response?.data?.message || error.message || '头像上传失败'
+    modalMessage.value = error.response?.data?.message || error.message || '头像上传失败'
   } finally {
     saving.value = false
     event.target.value = ''
@@ -470,12 +499,13 @@ async function chooseUserAvatar(event) {
 async function submitUserEditor() {
   saving.value = true
   message.value = ''
+  modalMessage.value = ''
   try {
     const payload = {
-      nickname: userForm.nickname,
-      email: userForm.email,
-      phone: userForm.phone,
-      avatar: userForm.avatar,
+      nickname: cleanText(userForm.nickname),
+      email: cleanText(userForm.email),
+      phone: cleanText(userForm.phone),
+      avatar: cleanText(userForm.avatar),
       maxConnections: userForm.maxConnections === '' ? null : Number(userForm.maxConnections),
       dailyQuotaMinutes: userForm.dailyQuotaMinutes === '' ? null : Number(userForm.dailyQuotaMinutes),
       expireTime: userForm.expireTime ? `${userForm.expireTime}:00` : null
@@ -483,20 +513,22 @@ async function submitUserEditor() {
     if (isSuperAdmin.value) payload.role = Number(userForm.role)
     const { data } = await updateUser(userForm.userId, payload)
     if (data.code !== 200) {
-      message.value = data.message || '保存失败'
+      modalMessage.value = data.message || '保存失败'
       return
     }
     editingUser.value = false
     message.value = '用户资料已保存'
     await loadTable(pager.current)
   } catch (error) {
-    message.value = error.response?.data?.message || '保存失败'
+    modalMessage.value = error.response?.data?.message || '保存失败'
   } finally {
     saving.value = false
   }
 }
 
 function openRuleEditor(row = null) {
+  message.value = ''
+  modalMessage.value = ''
   Object.assign(ruleForm, {
     id: row?.id || '',
     ruleCode: row?.ruleCode || '',
@@ -512,6 +544,7 @@ function openRuleEditor(row = null) {
 
 function closeRuleEditor() {
   editingRule.value = false
+  modalMessage.value = ''
 }
 
 async function openDetail(row, tab = activeTab.value) {
@@ -544,12 +577,14 @@ function closeDetail() {
 }
 
 async function submitRuleEditor() {
-  if (!ruleForm.ruleCode.trim() || !ruleForm.pattern.trim()) {
-    message.value = '请填写规则编码和匹配值'
+  const validationMessage = validateRuleForm()
+  if (validationMessage) {
+    modalMessage.value = validationMessage
     return
   }
   saving.value = true
   message.value = ''
+  modalMessage.value = ''
   try {
     const payload = {
       ruleType: Number(ruleForm.ruleType),
@@ -563,17 +598,34 @@ async function submitRuleEditor() {
       ? await updateRule(ruleForm.id, payload)
       : await createRule({ ...payload, ruleCode: ruleForm.ruleCode.trim() })
     if (response.data.code !== 200) {
-      message.value = response.data.message || '保存失败'
+      modalMessage.value = response.data.message || '保存失败'
       return
     }
     editingRule.value = false
     message.value = '规则已保存'
     await loadTable(pager.current)
   } catch (error) {
-    message.value = error.response?.data?.message || '保存失败'
+    modalMessage.value = error.response?.data?.message || '保存失败'
   } finally {
     saving.value = false
   }
+}
+
+function validateRuleForm() {
+  if (!ruleForm.ruleCode.trim()) return '请填写规则编码'
+  const pattern = ruleForm.pattern.trim()
+  if (!pattern) return '请填写匹配值'
+  const type = Number(ruleForm.ruleType)
+  if (type === 1 && !/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(pattern)) {
+    return '域名精确规则需要填写合法域名，例如 example.com'
+  }
+  if ((type === 2 || type === 4) && pattern.length < 2) {
+    return '包含匹配至少填写 2 个字符'
+  }
+  if (type === 3 && !/^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$/.test(pattern)) {
+    return 'IP 精确规则需要填写合法 IPv4 地址'
+  }
+  return ''
 }
 
 function prevPage() {
@@ -653,11 +705,17 @@ async function submitBlacklist() {
     return
   }
   loading.value = true
+  message.value = ''
   try {
-    await addBlacklist({ mac: blacklistForm.mac.trim(), reason: blacklistForm.reason.trim() || null })
+    const { data } = await addBlacklist({ mac: blacklistForm.mac.trim(), reason: cleanText(blacklistForm.reason) })
+    if (data.code !== 200) {
+      message.value = data.message || '添加失败'
+      return
+    }
     blacklistForm.mac = ''
     blacklistForm.reason = ''
     await loadTable(1)
+    message.value = '黑名单已加入'
   } catch (error) {
     message.value = error.response?.data?.message || '添加失败'
   } finally {
@@ -797,7 +855,7 @@ onBeforeUnmount(disconnectAlertSocket)
               <input v-model="filters.keyword" type="text" placeholder="输入关键字" @keyup.enter="search" />
             </label>
             <button type="button" :disabled="loading" @click="search">查询</button>
-            <button class="secondary-button" type="button" :disabled="loading" @click="reset">重置</button>
+            <button class="secondary-button" type="button" :disabled="loading" @click="reset">清空筛选</button>
           </section>
 
           <section v-if="activeTab === 'blacklist'" class="toolbar glass-toolbar">
@@ -903,7 +961,7 @@ onBeforeUnmount(disconnectAlertSocket)
       </section>
     </main>
 
-    <div v-if="editingUser" class="modal-backdrop" @click.self="closeUserEditor">
+    <div v-if="editingUser" class="modal-backdrop">
       <form class="modal-panel glass-panel" @submit.prevent="submitUserEditor">
         <header class="modal-header">
           <div>
@@ -912,6 +970,7 @@ onBeforeUnmount(disconnectAlertSocket)
           </div>
           <button class="secondary-button compact-button" type="button" @click="closeUserEditor">关闭</button>
         </header>
+        <p v-if="modalMessage" class="alert error modal-alert">{{ modalMessage }}</p>
         <div class="avatar-editor compact-avatar">
           <div class="avatar-preview">
             <img v-if="userForm.avatar" :src="avatarSrc(userForm.avatar)" alt="头像预览" />
@@ -969,7 +1028,7 @@ onBeforeUnmount(disconnectAlertSocket)
       </form>
     </div>
 
-    <div v-if="editingRule" class="modal-backdrop" @click.self="closeRuleEditor">
+    <div v-if="editingRule" class="modal-backdrop">
       <form class="modal-panel glass-panel" @submit.prevent="submitRuleEditor">
         <header class="modal-header">
           <div>
@@ -978,6 +1037,7 @@ onBeforeUnmount(disconnectAlertSocket)
           </div>
           <button class="secondary-button compact-button" type="button" @click="closeRuleEditor">关闭</button>
         </header>
+        <p v-if="modalMessage" class="alert error modal-alert">{{ modalMessage }}</p>
         <label>
           <span>规则编码</span>
           <input v-model="ruleForm.ruleCode" :disabled="!!ruleForm.id" placeholder="BLOCK_BAD_DOMAIN" />
@@ -986,23 +1046,19 @@ onBeforeUnmount(disconnectAlertSocket)
           <label>
             <span>规则类型</span>
             <select v-model="ruleForm.ruleType">
-              <option :value="1">域名</option>
-              <option :value="2">IP</option>
-              <option :value="3">端口</option>
+              <option v-for="option in ruleTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
           </label>
           <label>
             <span>动作</span>
             <select v-model="ruleForm.actionType">
-              <option :value="1">告警</option>
-              <option :value="2">阻断</option>
-              <option :value="3">限速</option>
+              <option v-for="option in actionTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
           </label>
         </div>
         <label>
           <span>匹配值</span>
-          <input v-model="ruleForm.pattern" placeholder="example.com / 192.168.1.1 / 443" />
+          <input v-model="ruleForm.pattern" :placeholder="rulePatternPlaceholder()" />
         </label>
         <div class="form-row">
           <label>
@@ -1025,7 +1081,7 @@ onBeforeUnmount(disconnectAlertSocket)
       </form>
     </div>
 
-    <div v-if="detailDrawer.open" class="drawer-backdrop" @click.self="closeDetail">
+    <div v-if="detailDrawer.open" class="drawer-backdrop">
       <aside class="drawer-panel glass-panel">
         <header class="modal-header">
           <div>

@@ -19,7 +19,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   const role = getStoredRole()
   if (token && isTokenExpired()) {
     clearSession('登录状态已过期，请重新登录')

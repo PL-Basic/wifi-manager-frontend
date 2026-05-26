@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { clearSession, isTokenExpired } from '@/utils/session'
+import { clearSession, getToken, isTokenExpired } from '@/utils/session'
 
 const http = axios.create({
   baseURL: '/api',
@@ -7,7 +7,7 @@ const http = axios.create({
 })
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = getToken()
   if (token) {
     if (isTokenExpired()) {
       clearSession('登录状态已过期，请重新登录')

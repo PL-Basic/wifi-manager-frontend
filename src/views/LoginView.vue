@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import { login } from '@/api/auth'
-import { syncSessionUser } from '@/utils/session'
+import { setSession } from '@/utils/session'
 
 const router = useRouter()
 const initialLoginMode = localStorage.getItem('lastLoginMode') === 'contact' ? 'contact' : 'username'
@@ -80,8 +80,7 @@ async function handleLogin() {
     if (data.code === 200) {
       const auth = data.data
       const role = auth.role ?? 2
-      localStorage.setItem('token', auth.token)
-      syncSessionUser({ username: auth.username, nickname: auth.nickname || '', role })
+      setSession(auth.token, { username: auth.username, nickname: auth.nickname || '', role })
       if (form.remember) {
         localStorage.setItem('lastAccount', form.account.trim())
         localStorage.setItem('lastLoginMode', loginMode.value)
