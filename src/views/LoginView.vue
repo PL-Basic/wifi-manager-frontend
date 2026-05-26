@@ -6,14 +6,31 @@ import { login } from '@/api/auth'
 import { syncSessionUser } from '@/utils/session'
 
 const router = useRouter()
+const initialLoginMode = localStorage.getItem('lastLoginMode') === 'contact' ? 'contact' : 'username'
 const form = reactive({
-  account: localStorage.getItem('lastAccount') || '',
+  account: localStorage.getItem(initialLoginMode === 'contact' ? 'lastContactAccount' : 'lastUsernameAccount')
+    || localStorage.getItem('lastAccount')
+    || '',
   password: '',
   remember: true
 })
+const loginMode = ref(initialLoginMode)
 const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
+
+const modeCopy = {
+  username: {
+    title: '用户名登录',
+    label: '用户名',
+    placeholder: '请输入用户名'
+  },
+  contact: {
+    title: '手机号或邮箱登录',
+    label: '手机号 / 邮箱',
+    placeholder: '请输入手机号或邮箱'
+  }
+}
 
 function showError(text) {
   message.value = text
@@ -25,9 +42,28 @@ function showSuccess(text) {
   messageType.value = 'success'
 }
 
+function switchLoginMode(mode) {
+  if (loginMode.value === mode) return
+  loginMode.value = mode
+  message.value = ''
+  form.account = localStorage.getItem(mode === 'contact' ? 'lastContactAccount' : 'lastUsernameAccount') || ''
+}
+
+function isPhone(value) {
+  return /^1[3-9]\d{9}$/.test(value)
+}
+
+function isEmail(value) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)
+}
+
 async function handleLogin() {
   if (!form.account.trim() || !form.password) {
-    showError('请输入账号和密码')
+    showError(loginMode.value === 'contact' ? '请输入手机号/邮箱和密码' : '请输入用户名和密码')
+    return
+  }
+  if (loginMode.value === 'contact' && !isPhone(form.account.trim()) && !isEmail(form.account.trim())) {
+    showError('请输入正确的手机号或邮箱')
     return
   }
 
@@ -36,6 +72,7 @@ async function handleLogin() {
 
   try {
     const { data } = await login({
+      loginType: loginMode.value,
       account: form.account.trim(),
       password: form.password
     })
@@ -47,8 +84,13 @@ async function handleLogin() {
       syncSessionUser({ username: auth.username, nickname: auth.nickname || '', role })
       if (form.remember) {
         localStorage.setItem('lastAccount', form.account.trim())
+        localStorage.setItem('lastLoginMode', loginMode.value)
+        localStorage.setItem(loginMode.value === 'contact' ? 'lastContactAccount' : 'lastUsernameAccount', form.account.trim())
       } else {
         localStorage.removeItem('lastAccount')
+        localStorage.removeItem('lastLoginMode')
+        localStorage.removeItem('lastContactAccount')
+        localStorage.removeItem('lastUsernameAccount')
       }
       showSuccess(data.message || '登录成功')
       router.push(Number(role) <= 1 ? '/dashboard' : '/profile')
@@ -85,13 +127,36 @@ onMounted(() => {
       <section class="auth-panel auth-panel--login">
         <div class="auth-copy">
           <p class="eyebrow">账号登录</p>
-          <h2>欢迎回来</h2>
+          <h2>{{ modeCopy[loginMode].title }}</h2>
+        </div>
+
+        <div class="auth-mode-switch" role="tablist" aria-label="登录方式">
+          <button
+            type="button"
+            :class="{ active: loginMode === 'username' }"
+            @click="switchLoginMode('username')"
+          >
+            用户名登录
+          </button>
+          <button
+            type="button"
+            :class="{ active: loginMode === 'contact' }"
+            @click="switchLoginMode('contact')"
+          >
+            手机号/邮箱登录
+          </button>
         </div>
 
         <form class="auth-form" @submit.prevent="handleLogin">
           <label>
-            <span>账号</span>
-            <input v-model="form.account" type="text" autocomplete="username" placeholder="用户名 / 邮箱 / 手机号" />
+            <span>{{ modeCopy[loginMode].label }}</span>
+            <input
+              v-model="form.account"
+              type="text"
+              :inputmode="loginMode === 'contact' ? 'email' : 'text'"
+              autocomplete="username"
+              :placeholder="modeCopy[loginMode].placeholder"
+            />
           </label>
 
           <label>
