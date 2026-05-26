@@ -23,6 +23,7 @@ const locations = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
+const messageType = ref('success')
 const userId = computed(() => {
   return parseTokenPayload()?.sub || ''
 })
@@ -52,6 +53,7 @@ async function loadData() {
   if (!userId.value) return
   loading.value = true
   message.value = ''
+  messageType.value = 'success'
   try {
     const [profileResp, locationResp] = await Promise.all([
       getMyProfile(userId.value),
@@ -66,6 +68,7 @@ async function loadData() {
     }
   } catch (error) {
     message.value = error.response?.data?.message || '加载失败'
+    messageType.value = 'error'
   } finally {
     loading.value = false
   }
@@ -74,6 +77,7 @@ async function loadData() {
 async function saveProfile() {
   saving.value = true
   message.value = ''
+  messageType.value = 'success'
   try {
     const { data } = await updateMyProfile(userId.value, {
       nickname: profile.nickname,
@@ -85,11 +89,14 @@ async function saveProfile() {
       Object.assign(profile, data.data)
       syncSessionUser(profile)
       message.value = '保存成功'
+      messageType.value = 'success'
     } else {
       message.value = data.message || '保存失败'
+      messageType.value = 'error'
     }
   } catch (error) {
     message.value = error.response?.data?.message || '保存失败'
+    messageType.value = 'error'
   } finally {
     saving.value = false
   }
@@ -97,6 +104,7 @@ async function saveProfile() {
 
 async function chooseAvatar(event) {
   message.value = ''
+  messageType.value = 'success'
   saving.value = true
   try {
     const file = event.target.files?.[0]
@@ -106,11 +114,14 @@ async function chooseAvatar(event) {
       profile.avatar = data.data?.url || ''
       syncSessionUser(profile)
       message.value = '头像上传成功'
+      messageType.value = 'success'
     } else {
       message.value = data.message || '头像上传失败'
+      messageType.value = 'error'
     }
   } catch (error) {
     message.value = error.response?.data?.message || error.message || '头像上传失败'
+    messageType.value = 'error'
   } finally {
     saving.value = false
     event.target.value = ''
@@ -145,7 +156,7 @@ onMounted(loadData)
           <button type="button" :disabled="loading" @click="loadData">刷新</button>
         </header>
 
-        <p v-if="message" class="alert success">{{ message }}</p>
+        <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
 
         <section v-if="activeTab === 'profile'" class="profile-grid">
           <form class="profile-panel glass-panel" @submit.prevent="saveProfile">

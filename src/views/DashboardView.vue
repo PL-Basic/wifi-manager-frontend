@@ -188,16 +188,37 @@ function formatValue(key, value) {
 
 function canOperateUser(row) {
   if (!row) return false
-  if (isSuperAdmin.value) return Number(row.role) !== 0 || String(row.userId) === String(getCurrentUserId())
+  if (isSelfUser(row)) return true
+  if (isSuperAdmin.value) return Number(row.role) !== 0
   return Number(row.role) === 2
 }
 
 function canEditRole(row) {
-  return isSuperAdmin.value && Number(row?.role) !== 0
+  return isSuperAdmin.value && !isSelfUser(row) && Number(row?.role) !== 0
 }
 
 function getCurrentUserId() {
   return parseTokenPayload()?.sub || ''
+}
+
+function isSelfUser(row) {
+  return !!row && String(row.userId) === String(getCurrentUserId())
+}
+
+function canChangeUserStatus(row) {
+  return canOperateUser(row) && !isSelfUser(row)
+}
+
+function canDeleteUser(row) {
+  return canOperateUser(row) && !isSelfUser(row)
+}
+
+function canPurgeUser(row) {
+  return isSuperAdmin.value && !isSelfUser(row) && Number(row?.role) !== 0
+}
+
+function canDemoteUser(row) {
+  return isSuperAdmin.value && !isSelfUser(row) && Number(row?.role) === 1
 }
 
 function initials() {
@@ -833,13 +854,13 @@ onBeforeUnmount(disconnectAlertSocket)
                   <td v-for="column in currentColumns" :key="column[0]">{{ formatValue(column[0], item[column[0]]) }}</td>
                   <td v-if="activeTab === 'users'" class="action-cell">
                     <button class="secondary-button compact-button" type="button" :disabled="!canOperateUser(item)" @click="openUserEditor(item)">编辑</button>
-                    <button class="secondary-button compact-button" type="button" :disabled="!canOperateUser(item)" @click="handleRowAction('toggleUser', item)">
+                    <button class="secondary-button compact-button" type="button" :disabled="!canChangeUserStatus(item)" @click="handleRowAction('toggleUser', item)">
                       {{ item.status === 1 ? '禁用' : '启用' }}
                     </button>
                     <button v-if="isSuperAdmin && item.role === 2" class="secondary-button compact-button" type="button" @click="handleRowAction('promoteAdmin', item)">委任管理员</button>
-                    <button v-if="isSuperAdmin && item.role === 1" class="secondary-button compact-button" type="button" @click="handleRowAction('demoteUser', item)">降为用户</button>
-                    <button class="danger-button compact-button" type="button" :disabled="!canOperateUser(item)" @click="handleRowAction('deleteUser', item)">逻辑删除</button>
-                    <button v-if="isSuperAdmin" class="danger-button compact-button" type="button" :disabled="item.role === 0" @click="handleRowAction('purgeUser', item)">物理删除</button>
+                    <button v-if="isSuperAdmin && item.role === 1" class="secondary-button compact-button" type="button" :disabled="!canDemoteUser(item)" @click="handleRowAction('demoteUser', item)">降为用户</button>
+                    <button class="danger-button compact-button" type="button" :disabled="!canDeleteUser(item)" @click="handleRowAction('deleteUser', item)">逻辑删除</button>
+                    <button v-if="isSuperAdmin" class="danger-button compact-button" type="button" :disabled="!canPurgeUser(item)" @click="handleRowAction('purgeUser', item)">物理删除</button>
                     <button v-else class="danger-button compact-button" type="button" :disabled="!canOperateUser(item)" @click="handleRowAction('requestPurge', item)">申请物理删除</button>
                   </td>
                   <td v-else-if="activeTab === 'devices'" class="action-cell">
