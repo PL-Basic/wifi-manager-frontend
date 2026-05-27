@@ -1,18 +1,18 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import LocationMap from '@/components/LocationMap.vue'
 import StateBlock from '@/components/StateBlock.vue'
 import { getMyLocations, getMyProfile, updateMyProfile, uploadAvatar } from '@/api/admin'
 import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
-import { clearSession, parseTokenPayload, syncSessionUser } from '@/utils/session'
+import { clearSession, getStoredUsername, onSessionChange, parseTokenPayload, syncSessionUser } from '@/utils/session'
 
 const router = useRouter()
 const activeTab = ref('profile')
 const profile = reactive({
   userId: '',
-  username: sessionStorage.getItem('username') || '',
+  username: getStoredUsername(),
   nickname: '',
   email: '',
   phone: '',
@@ -23,6 +23,7 @@ const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
 const messageType = ref('success')
+let stopSessionSync = null
 const userId = computed(() => {
   return parseTokenPayload()?.sub || ''
 })
@@ -41,8 +42,7 @@ function avatarSrc(value) {
 }
 
 function cleanText(value) {
-  const text = typeof value === 'string' ? value.trim() : value
-  return text === '' ? null : text
+  return typeof value === 'string' ? value.trim() : value
 }
 
 function logout() {
@@ -129,7 +129,16 @@ async function chooseAvatar(event) {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  stopSessionSync = onSessionChange(() => {
+    window.location.reload()
+  })
+})
+
+onBeforeUnmount(() => {
+  if (stopSessionSync) stopSessionSync()
+})
 </script>
 
 <template>

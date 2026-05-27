@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import LocationMap from '@/components/LocationMap.vue'
 import StateBlock from '@/components/StateBlock.vue'
-import { clearSession, parseTokenPayload, syncSessionUser } from '@/utils/session'
+import { clearSession, getStoredDisplayName, getStoredRole, onSessionChange, parseTokenPayload, syncSessionUser } from '@/utils/session'
 import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
 import {
   addBlacklist,
@@ -41,19 +41,21 @@ import {
 } from '@/api/admin'
 
 const router = useRouter()
-const username = sessionStorage.getItem('nickname') || sessionStorage.getItem('username') || 'Admin'
-const role = Number(sessionStorage.getItem('role') || 2)
+const username = getStoredDisplayName() || 'Admin'
+const role = getStoredRole()
 const isSuperAdmin = computed(() => role === 0)
 const activeTab = ref('overview')
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
 const modalMessage = ref('')
+const modalMessageType = ref('error')
 const dashboard = ref(null)
 const rows = ref([])
 const alertToasts = ref([])
 let alertSocket = null
 let toastSeed = 0
+let stopSessionSync = null
 const pager = reactive({ current: 1, size: 10, total: 0 })
 const filters = reactive({ keyword: '', mac: '' })
 const blacklistForm = reactive({ mac: '', reason: '' })
@@ -248,6 +250,10 @@ function cleanText(value) {
   return text === '' ? null : text
 }
 
+function trimText(value) {
+  return typeof value === 'string' ? value.trim() : value
+}
+
 function rulePatternPlaceholder() {
   const type = Number(ruleForm.ruleType)
   if (type === 1) return 'example.com'
@@ -350,10 +356,10 @@ async function saveProfile() {
   message.value = ''
   try {
     const { data } = await updateMyProfile(profile.userId, {
-      nickname: cleanText(profile.nickname),
-      email: cleanText(profile.email),
-      phone: cleanText(profile.phone),
-      avatar: cleanText(profile.avatar)
+      nickname: trimText(profile.nickname),
+      email: trimText(profile.email),
+      phone: trimText(profile.phone),
+      avatar: trimText(profile.avatar)
     })
     if (data.code === 200) {
       Object.assign(profile, data.data)
@@ -433,6 +439,7 @@ function switchTab(tab) {
   pager.total = 0
   message.value = ''
   modalMessage.value = ''
+  modalMessageType.value = 'error'
   if (tab === 'overview') {
     loadOverview()
   } else if (tab === 'profile') {
@@ -455,6 +462,7 @@ function reset() {
 function openUserEditor(row) {
   message.value = ''
   modalMessage.value = ''
+  modalMessageType.value = 'error'
   Object.assign(userForm, {
     userId: row.userId,
     username: row.username || '',
@@ -485,11 +493,14 @@ async function chooseUserAvatar(event) {
     if (data.code === 200) {
       userForm.avatar = data.data?.url || ''
       modalMessage.value = '头像上传成功'
+      modalMessageType.value = 'success'
     } else {
       modalMessage.value = data.message || '头像上传失败'
+      modalMessageType.value = 'error'
     }
   } catch (error) {
     modalMessage.value = error.response?.data?.message || error.message || '头像上传失败'
+    modalMessageType.value = 'error'
   } finally {
     saving.value = false
     event.target.value = ''
@@ -500,12 +511,13 @@ async function submitUserEditor() {
   saving.value = true
   message.value = ''
   modalMessage.value = ''
+  modalMessageType.value = 'error'
   try {
     const payload = {
-      nickname: cleanText(userForm.nickname),
-      email: cleanText(userForm.email),
-      phone: cleanText(userForm.phone),
-      avatar: cleanText(userForm.avatar),
+      nickname: trimText(userForm.nickname),
+      email: trimText(userForm.email),
+      phone: trimText(userForm.phone),
+      avatar: trimText(userForm.avatar),
       maxConnections: userForm.maxConnections === '' ? null : Number(userForm.maxConnections),
       dailyQuotaMinutes: userForm.dailyQuotaMinutes === '' ? null : Number(userForm.dailyQuotaMinutes),
       expireTime: userForm.expireTime ? `${userForm.expireTime}:00` : null
@@ -514,13 +526,25 @@ async function submitUserEditor() {
     const { data } = await updateUser(userForm.userId, payload)
     if (data.code !== 200) {
       modalMessage.value = data.message || '保存失败'
+      modalMessageType.value = 'error'
       return
     }
-    editingUser.value = false
-    message.value = '用户资料已保存'
+    Object.assign(userForm, {
+      nickname: data.data?.nickname || '',
+      email: data.data?.email || '',
+      phone: data.data?.phone || '',
+      avatar: data.data?.avatar || '',
+      role: data.data?.role ?? userForm.role,
+      maxConnections: data.data?.maxConnections ?? '',
+      dailyQuotaMinutes: data.data?.dailyQuotaMinutes ?? '',
+      expireTime: data.data?.expireTime ? String(data.data.expireTime).slice(0, 16) : ''
+    })
+    modalMessage.value = data.message || '保存成功'
+    modalMessageType.value = 'success'
     await loadTable(pager.current)
   } catch (error) {
     modalMessage.value = error.response?.data?.message || '保存失败'
+    modalMessageType.value = 'error'
   } finally {
     saving.value = false
   }
@@ -529,6 +553,7 @@ async function submitUserEditor() {
 function openRuleEditor(row = null) {
   message.value = ''
   modalMessage.value = ''
+  modalMessageType.value = 'error'
   Object.assign(ruleForm, {
     id: row?.id || '',
     ruleCode: row?.ruleCode || '',
@@ -726,9 +751,15 @@ async function submitBlacklist() {
 onMounted(() => {
   loadOverview()
   connectAlertSocket()
+  stopSessionSync = onSessionChange(() => {
+    window.location.reload()
+  })
 })
 
-onBeforeUnmount(disconnectAlertSocket)
+onBeforeUnmount(() => {
+  disconnectAlertSocket()
+  if (stopSessionSync) stopSessionSync()
+})
 </script>
 
 <template>
@@ -970,7 +1001,7 @@ onBeforeUnmount(disconnectAlertSocket)
           </div>
           <button class="secondary-button compact-button" type="button" @click="closeUserEditor">关闭</button>
         </header>
-        <p v-if="modalMessage" class="alert error modal-alert">{{ modalMessage }}</p>
+        <p v-if="modalMessage" :class="['alert', modalMessageType, 'modal-alert']">{{ modalMessage }}</p>
         <div class="avatar-editor compact-avatar">
           <div class="avatar-preview">
             <img v-if="userForm.avatar" :src="avatarSrc(userForm.avatar)" alt="头像预览" />
@@ -1037,7 +1068,7 @@ onBeforeUnmount(disconnectAlertSocket)
           </div>
           <button class="secondary-button compact-button" type="button" @click="closeRuleEditor">关闭</button>
         </header>
-        <p v-if="modalMessage" class="alert error modal-alert">{{ modalMessage }}</p>
+        <p v-if="modalMessage" :class="['alert', modalMessageType, 'modal-alert']">{{ modalMessage }}</p>
         <label>
           <span>规则编码</span>
           <input v-model="ruleForm.ruleCode" :disabled="!!ruleForm.id" placeholder="BLOCK_BAD_DOMAIN" />

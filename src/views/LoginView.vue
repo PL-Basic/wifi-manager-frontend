@@ -1,9 +1,9 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import { login } from '@/api/auth'
-import { setSession } from '@/utils/session'
+import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/session'
 
 const router = useRouter()
 const initialLoginMode = localStorage.getItem('lastLoginMode') === 'contact' ? 'contact' : 'username'
@@ -18,6 +18,7 @@ const loginMode = ref(initialLoginMode)
 const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
+let stopSessionSync = null
 
 const modeCopy = {
   username: {
@@ -57,7 +58,15 @@ function isEmail(value) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)
 }
 
+function redirectIfLoggedIn() {
+  if (!getToken()) return false
+  const role = getStoredRole()
+  router.replace(Number(role) <= 1 ? '/dashboard' : '/profile')
+  return true
+}
+
 async function handleLogin() {
+  if (redirectIfLoggedIn()) return
   if (!form.account.trim() || !form.password) {
     showError(loginMode.value === 'contact' ? '请输入手机号/邮箱和密码' : '请输入用户名和密码')
     return
@@ -104,11 +113,19 @@ async function handleLogin() {
 }
 
 onMounted(() => {
+  if (redirectIfLoggedIn()) return
+  stopSessionSync = onSessionChange(() => {
+    redirectIfLoggedIn()
+  })
   const authMessage = sessionStorage.getItem('authMessage')
   if (authMessage) {
     showError(authMessage)
     sessionStorage.removeItem('authMessage')
   }
+})
+
+onBeforeUnmount(() => {
+  if (stopSessionSync) stopSessionSync()
 })
 </script>
 

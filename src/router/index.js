@@ -3,7 +3,7 @@ import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import ProfileView from '@/views/ProfileView.vue'
-import { clearSession, getStoredRole, isTokenExpired } from '@/utils/session'
+import { clearSession, getStoredRole, getToken, isTokenExpired } from '@/utils/session'
 
 const routes = [
   { path: '/', redirect: () => (getStoredRole() <= 1 ? '/dashboard' : '/profile') },
@@ -19,7 +19,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = sessionStorage.getItem('token')
+  const token = getToken()
   const role = getStoredRole()
   if (token && isTokenExpired()) {
     clearSession('登录状态已过期，请重新登录')
