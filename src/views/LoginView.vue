@@ -53,7 +53,11 @@ function switchLoginMode(mode) {
   if (loginMode.value === mode) return
   loginMode.value = mode
   message.value = ''
-  form.account = localStorage.getItem(mode === 'contact' ? 'lastContactAccount' : 'lastUsernameAccount') || ''
+  form.password = ''
+  form.code = ''
+
+  const accountKey = mode === 'username' ? 'lastUsernameAccount' : 'lastContactAccount'
+  form.account = localStorage.getItem(accountKey) || ''
 }
 
 function isPhone(value) {
@@ -71,62 +75,93 @@ function redirectIfLoggedIn() {
   return true
 }
 
+function finishLogin(auth,account) {
+  const role = auth.role ?? 2
+  setSession(auth.token,{
+    username: auth.username, 
+    nickname: auth.nickname || '', 
+    role 
+  })
+
+  if (form.remember) {
+    localStorage.setItem('lastAccount', form.account.trim())
+    localStorage.setItem('lastLoginMode', loginMode.value)
+
+    const accountKey = loginMode.value === 'username' ? 'lastUsernameAccount' : 'lastContactAccount'
+    localStorage.setItem(accountKey, form.account.trim())
+  } else {
+    localStorage.removeItem('lastAccount')
+    localStorage.removeItem('lastLoginMode')
+    localStorage.removeItem('lastContactAccount')
+    localStorage.removeItem('lastUsernameAccount')
+  }
+
+  router.push(Number(role) <= 1 ? '/dashboard' : '/profile')
+}
+
 async function handleLogin() {
+  if (redirectIfLoggedIn()) return
+  
+  const account = form.account.trim()
+
   if(loginMode.value !== 'code'){
-    if (redirectIfLoggedIn()) return
     if (!form.account.trim() || !form.password) {
       showError(loginMode.value === 'contact' ? '请输入手机号/邮箱和密码' : '请输入用户名和密码')
       return
     }
-    if (loginMode.value === 'contact' && !isPhone(form.account.trim()) && !isEmail(form.account.trim())) {
+
+    if (loginMode.value === 'contact' && !isPhone(account) && !isEmail(account)) {
       showError('请输入正确的手机号或邮箱')
       return
     }
+  } else {
+    if(!account){
+      showError('请输入手机号或邮箱')
+      return
+    }
+
+    if(!isPhone(account) && !isEmail(account)) {
+      showError("请输入正确的手机号或邮箱")
+      return
+    }
+
+    if(!form.code.trim()){
+      showError('请输入验证码')
+      return
+    }
+  }
 
     loading.value = true
     message.value = ''
 
     try {
-      const { data } = await login({
-        loginType: loginMode.value,
-        account: form.account.trim(),
-        password: form.password
-      })
-
-    if (data.code === 200) {
-      const auth = data.data
-      const role = auth.role ?? 2
-      setSession(auth.token, { username: auth.username, nickname: auth.nickname || '', role })
-      if (form.remember) {
-        localStorage.setItem('lastAccount', form.account.trim())
-        localStorage.setItem('lastLoginMode', loginMode.value)
-        localStorage.setItem(loginMode.value === 'contact' ? 'lastContactAccount' : 'lastUsernameAccount', form.account.trim())
+      let response
+      if (loginMode.value !== 'code') {
+        response = await login({
+          loginType: loginMode.value,
+          account,
+          password: form.password
+        })
       } else {
-        localStorage.removeItem('lastAccount')
-        localStorage.removeItem('lastLoginMode')
-        localStorage.removeItem('lastContactAccount')
-        localStorage.removeItem('lastUsernameAccount')
+        response = await loginByVerifyCode({
+          target: account,
+          code: form.code.trim()
+        })
       }
-      showSuccess(data.message || '登录成功')
-      router.push(Number(role) <= 1 ? '/dashboard' : '/profile')
-    } else {
-      showError(data.message || '登录失败')
-    }
+
+      const data = response.data
+      
+      if (data.code === 200) {
+        finishLogin(data.data, account)
+        showSuccess(data.message || '登录成功')
+      } else {
+        showError(data.message || '登录失败')
+      }
     } catch (error) {
       showError(error.response?.data?.message || '网络请求失败')
     } finally {
       loading.value = false
     }
-  } else {
-    const { data } = await loginByVerifyCode({
-      target: form.account.trim(),
-      code: form.code.trim()
-    })
-    const auth = data.data
-    const role = auth.role ?? 2
-    setSession(auth.token, { username: auth.username, nickname: auth.nickname || '', role })
-    router.push(Number(role) <= 1 ? '/dashboard' : '/profile')
-  }
 }
 
 async function handleSendCode() {

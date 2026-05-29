@@ -13,5 +13,5 @@ export function sendVerifyCode(data){
 }
 
 export function loginByVerifyCode(data){
-  return http.post('auth/code-login',data)
+  return http.post('/auth/code-login',data)
 }
