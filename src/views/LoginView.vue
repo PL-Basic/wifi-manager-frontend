@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
-import { login } from '@/api/auth'
+import { login,loginByVerifyCode,sendVerifyCode } from '@/api/auth'
 import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/session'
 
 const router = useRouter()
@@ -12,6 +12,7 @@ const form = reactive({
     || localStorage.getItem('lastAccount')
     || '',
   password: '',
+  code: '',
   remember: true
 })
 const loginMode = ref(initialLoginMode)
@@ -28,6 +29,11 @@ const modeCopy = {
   },
   contact: {
     title: '手机号或邮箱登录',
+    label: '手机号 / 邮箱',
+    placeholder: '请输入手机号或邮箱'
+  },
+  code: {
+    title: '验证码登录',
     label: '手机号 / 邮箱',
     placeholder: '请输入手机号或邮箱'
   }
@@ -66,25 +72,26 @@ function redirectIfLoggedIn() {
 }
 
 async function handleLogin() {
-  if (redirectIfLoggedIn()) return
-  if (!form.account.trim() || !form.password) {
-    showError(loginMode.value === 'contact' ? '请输入手机号/邮箱和密码' : '请输入用户名和密码')
-    return
-  }
-  if (loginMode.value === 'contact' && !isPhone(form.account.trim()) && !isEmail(form.account.trim())) {
-    showError('请输入正确的手机号或邮箱')
-    return
-  }
+  if(loginMode.value !== 'code'){
+    if (redirectIfLoggedIn()) return
+    if (!form.account.trim() || !form.password) {
+      showError(loginMode.value === 'contact' ? '请输入手机号/邮箱和密码' : '请输入用户名和密码')
+      return
+    }
+    if (loginMode.value === 'contact' && !isPhone(form.account.trim()) && !isEmail(form.account.trim())) {
+      showError('请输入正确的手机号或邮箱')
+      return
+    }
 
-  loading.value = true
-  message.value = ''
+    loading.value = true
+    message.value = ''
 
-  try {
-    const { data } = await login({
-      loginType: loginMode.value,
-      account: form.account.trim(),
-      password: form.password
-    })
+    try {
+      const { data } = await login({
+        loginType: loginMode.value,
+        account: form.account.trim(),
+        password: form.password
+      })
 
     if (data.code === 200) {
       const auth = data.data
@@ -105,12 +112,52 @@ async function handleLogin() {
     } else {
       showError(data.message || '登录失败')
     }
-  } catch (error) {
-    showError(error.response?.data?.message || '网络请求失败')
-  } finally {
-    loading.value = false
+    } catch (error) {
+      showError(error.response?.data?.message || '网络请求失败')
+    } finally {
+      loading.value = false
+    }
+  } else {
+    const { data } = await loginByVerifyCode({
+      target: form.account.trim(),
+      code: form.code.trim()
+    })
+    const auth = data.data
+    const role = auth.role ?? 2
+    setSession(auth.token, { username: auth.username, nickname: auth.nickname || '', role })
+    router.push(Number(role) <= 1 ? '/dashboard' : '/profile')
   }
 }
+
+async function handleSendCode() {
+  const account = form.account.trim()
+  if(!account) {
+    showError('请输入手机号或邮箱')
+    return
+  }
+  if(!isPhone(account) && !isEmail(account)){
+    showError('请输入正确的手机号或邮箱')
+    return
+  }
+
+  try{
+    const{ data } = await sendVerifyCode({
+      target: account,
+      scene: 'login'
+    })
+  
+
+    if(data.code === 200){
+      showSuccess(data.message || '验证码已发送')
+    } else {
+      showError(data.message || '验证码发送失败')
+    }
+  } catch (error) {
+    showError(error.response?.data?.message || '验证码发送失败')
+  }
+
+}
+
 
 onMounted(() => {
   if (redirectIfLoggedIn()) return
@@ -161,6 +208,13 @@ onBeforeUnmount(() => {
           >
             手机号/邮箱登录
           </button>
+          <button
+            type="button"
+            :class="{ active: loginMode === 'code'}"
+            @click="switchLoginMode('code')"
+            >
+            验证码登录
+          </button>
         </div>
 
         <form class="auth-form" @submit.prevent="handleLogin">
@@ -175,9 +229,25 @@ onBeforeUnmount(() => {
             />
           </label>
 
-          <label>
+          <label v-if="loginMode != 'code'">
             <span>密码</span>
             <input v-model="form.password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+          </label>
+
+          <label v-if="loginMode === 'code'">
+            <span>验证码</span>
+            <div class="code-row">
+              <input
+                v-model="form.code"
+                type="text"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="请输入验证码"
+              />
+              <button type="button" @click="handleSendCode">
+                发送验证码
+              </button>
+            </div>
           </label>
 
           <label class="check-line">
