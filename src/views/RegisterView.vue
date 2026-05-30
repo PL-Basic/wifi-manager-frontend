@@ -66,6 +66,17 @@ async function handleRegister() {
     return
   }
 
+  
+  if(form.email.trim() && !form.emailCode.trim()) {
+    showError('请输入邮箱验证码')
+    return
+  }
+
+  if(form.phone.trim() && !form.phoneCode.trim()) {
+    showError('请输入手机验证码')
+    return
+  }
+
   loading.value = true
   message.value = ''
 
@@ -79,17 +90,6 @@ async function handleRegister() {
       emailCode: form.emailCode.trim() || null,
       phoneCode: form.phoneCode.trim() || null
     })
-
-
-    if(form.email.trim() && !form.emailCode.trim()) {
-      showError('请输入邮箱验证码')
-      return
-    }
-
-    if(form.phone.trim() && !form.phoneCode.trim()) {
-      showError('请输入手机验证码')
-      return
-    }
 
     if (data.code === 200) {
       showSuccess(data.message || '注册成功')
@@ -211,12 +211,12 @@ async function handleSendPhoneCode() {
             <input v-model="form.nickname" type="text" placeholder="显示名称" />
           </label>
 
-          <label v-if="form.email.trim()">
+          <label>
             <span>邮箱</span>
             <input v-model="form.email" type="email" autocomplete="email" placeholder="可选" />
           </label>
             
-          <label>
+          <label v-if="form.email.trim()">
             <span>邮箱验证码</span>
             <div class="code-row">
               <input
@@ -238,7 +238,7 @@ async function handleSendPhoneCode() {
             <input v-model="form.phone" type="tel" autocomplete="tel" placeholder="可选" />
           </label>
 
-          <label v-if="form.email.trim()">
+          <label v-if="form.phone.trim()">
             <span>手机验证码</span>
             <div class="code-row">
               <input 
