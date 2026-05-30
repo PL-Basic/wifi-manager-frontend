@@ -23,8 +23,8 @@ const message = ref('')
 const messageType = ref('success')
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
-const codeTimer = null
 
+let codeTimer = null
 let stopSessionSync = null
 
 const modeCopy = {
@@ -203,10 +203,7 @@ async function handleSendCode() {
     showError(error.response?.data?.message || '验证码发送失败')
   } finally {
     sendingCode.value = false
-    onBeforeUnmount(() => {
-      if(stopSessionSync) stopSessionSync()
-      if(codeTimer) clearInterval(codeTimer)
-    })
+
   }
 
 }
@@ -226,6 +223,8 @@ function startCodeCooldown(secends = 60){
   },1000)
 }
 
+
+
 onMounted(() => {
   if (redirectIfLoggedIn()) return
   stopSessionSync = onSessionChange(() => {
@@ -240,7 +239,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (stopSessionSync) stopSessionSync()
+  if(codeTimer) clearInterval(codeTimer)
 })
+
 </script>
 
 <template>
