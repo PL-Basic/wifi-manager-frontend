@@ -16,9 +16,11 @@ const form = reactive({
   remember: true
 })
 const loginMode = ref(initialLoginMode)
+const contactLoginType = ref('password')
 const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
+
 let stopSessionSync = null
 
 const modeCopy = {
@@ -29,11 +31,6 @@ const modeCopy = {
   },
   contact: {
     title: '手机号或邮箱登录',
-    label: '手机号 / 邮箱',
-    placeholder: '请输入手机号或邮箱'
-  },
-  code: {
-    title: '验证码登录',
     label: '手机号 / 邮箱',
     placeholder: '请输入手机号或邮箱'
   }
@@ -100,11 +97,14 @@ function finishLogin(auth,account) {
 }
 
 async function handleLogin() {
+  const isCodeLogin = loginMode.value === 'contact' && contactLoginType.value === 'code'
+  const isPasswordLogin = !isCodeLogin
+
   if (redirectIfLoggedIn()) return
   
   const account = form.account.trim()
 
-  if(loginMode.value !== 'code'){
+  if(isPasswordLogin) {
     if (!form.account.trim() || !form.password) {
       showError(loginMode.value === 'contact' ? '请输入手机号/邮箱和密码' : '请输入用户名和密码')
       return
@@ -136,7 +136,7 @@ async function handleLogin() {
 
     try {
       let response
-      if (loginMode.value !== 'code') {
+      if (isPasswordLogin) {
         response = await login({
           loginType: loginMode.value,
           account,
@@ -228,27 +228,21 @@ onBeforeUnmount(() => {
           <h2>{{ modeCopy[loginMode].title }}</h2>
         </div>
 
-        <div class="auth-mode-switch" role="tablist" aria-label="登录方式">
+        <div class="auth-mode-switch" role="tablist" aria-label="登录账号类型">
           <button
             type="button"
             :class="{ active: loginMode === 'username' }"
             @click="switchLoginMode('username')"
           >
-            用户名登录
+            用户名
           </button>
+
           <button
             type="button"
             :class="{ active: loginMode === 'contact' }"
             @click="switchLoginMode('contact')"
           >
-            手机号/邮箱登录
-          </button>
-          <button
-            type="button"
-            :class="{ active: loginMode === 'code'}"
-            @click="switchLoginMode('code')"
-            >
-            验证码登录
+            手机号/邮箱
           </button>
         </div>
 
@@ -263,13 +257,13 @@ onBeforeUnmount(() => {
               :placeholder="modeCopy[loginMode].placeholder"
             />
           </label>
-
-          <label v-if="loginMode !== 'code'">
+          
+          <label v-if="loginMode === 'username' || (loginMode === 'contact' && contactLoginType === 'password')">
             <span>密码</span>
             <input v-model="form.password" type="password" autocomplete="current-password" placeholder="请输入密码" />
           </label>
 
-          <label v-if="loginMode === 'code'">
+          <label v-if="loginMode === 'contact' && contactLoginType === 'code'">
             <span>验证码</span>
             <div class="code-row">
               <input
@@ -284,6 +278,23 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </label>
+
+           <div v-if="loginMode === 'contact'" class="auth-sub-switch">
+            <button 
+              type="button"
+              :class="{ active: contactLoginType === 'password'}"
+              @click="contactLoginType = 'password'"
+            >
+              密码登录
+            </button>
+            <button
+              type="button"
+              :class="{ active: contactLoginType === 'code'}"
+              @click="contactLoginType = 'code'"
+            >
+              验证码登录
+            </button>
+          </div>
 
           <label class="check-line">
             <input v-model="form.remember" type="checkbox" />

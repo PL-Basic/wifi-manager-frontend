@@ -77,6 +77,7 @@ async function handleRegister() {
     return
   }
 
+  //页面进入提交中状态
   loading.value = true
   message.value = ''
 
