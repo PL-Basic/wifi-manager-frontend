@@ -15,11 +15,15 @@ const form = reactive({
   code: '',
   remember: true
 })
+
 const loginMode = ref(initialLoginMode)
 const contactLoginType = ref('password')
 const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
+const sendingCode = ref(false)
+const codeCooldown = ref(0)
+const codeTimer = null
 
 let stopSessionSync = null
 
@@ -165,15 +169,22 @@ async function handleLogin() {
 }
 
 async function handleSendCode() {
+  if (sendingCode.value || codeCooldown.value > 0) return
+
   const account = form.account.trim()
+  
   if(!account) {
     showError('请输入手机号或邮箱')
     return
   }
+  
   if(!isPhone(account) && !isEmail(account)){
     showError('请输入正确的手机号或邮箱')
     return
   }
+
+  sendingCode.value = true
+  message.value = ''
 
   try{
     const{ data } = await sendVerifyCode({
@@ -184,15 +195,36 @@ async function handleSendCode() {
 
     if(data.code === 200){
       showSuccess(data.message || '验证码已发送')
+      startCodeCooldown(60)
     } else {
       showError(data.message || '验证码发送失败')
     }
   } catch (error) {
     showError(error.response?.data?.message || '验证码发送失败')
+  } finally {
+    sendingCode.value = false
+    onBeforeUnmount(() => {
+      if(stopSessionSync) stopSessionSync()
+      if(codeTimer) clearInterval(codeTimer)
+    })
   }
 
 }
 
+function startCodeCooldown(secends = 60){
+  codeCooldown.value = secends
+  
+  if (codeTimer) clearInterval(codeTimer)
+
+  codeTimer = setInterval(() => {
+    codeCooldown.value -= 1
+    
+    if (codeCooldown.value <= 0){
+      clearInterval(codeTimer)
+      codeTimer = null
+    }
+  },1000)
+}
 
 onMounted(() => {
   if (redirectIfLoggedIn()) return
@@ -273,8 +305,11 @@ onBeforeUnmount(() => {
                 autocomplete="one-time-code"
                 placeholder="请输入验证码"
               />
-              <button type="button" @click="handleSendCode">
-                发送验证码
+              <button 
+              type="button" 
+              :disabled="sendingCode || codeCooldown > 0"
+              @click="handleSendCode">
+                {{ codeCooldown > 0 ? `${codeCooldown}s 后重发` : sendingCode ? '发送中...' : '发送验证码' }}
               </button>
             </div>
           </label>
