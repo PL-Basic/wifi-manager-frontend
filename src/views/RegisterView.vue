@@ -2,7 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
-import { register } from '@/api/auth'
+import { register, sendVerifyCode } from '@/api/auth'
 
 const router = useRouter()
 const form = reactive({
@@ -11,12 +11,22 @@ const form = reactive({
   confirmPassword: '',
   nickname: '',
   email: '',
-  phone: ''
+  phone: '',
+  emailCode: '',
+  phoneCode: ''
 })
 const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
 const confirmPasswordError = ref('')
+
+function isPhone(value) {
+  return /^1[3-9]\d{9}$/.test(value)
+}
+
+function isEmail(value) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)
+}
 
 function showError(text) {
   message.value = text
@@ -65,8 +75,21 @@ async function handleRegister() {
       password: form.password,
       nickname: form.nickname.trim(),
       email: form.email.trim() || null,
-      phone: form.phone.trim() || null
+      phone: form.phone.trim() || null,
+      emailCode: form.emailCode.trim() || null,
+      phoneCode: form.phoneCode.trim() || null
     })
+
+
+    if(form.email.trim() && !form.emailCode.trim()) {
+      showError('请输入邮箱验证码')
+      return
+    }
+
+    if(form.phone.trim() && !form.phoneCode.trim()) {
+      showError('请输入手机验证码')
+      return
+    }
 
     if (data.code === 200) {
       showSuccess(data.message || '注册成功')
@@ -81,6 +104,63 @@ async function handleRegister() {
     loading.value = false
   }
 }
+
+async function handleSendEmailCode() {
+  const email = form.email.trim()
+  if(!email) {
+    showError('请输入邮箱')
+    return
+  }
+  if(!isEmail(email)) {
+    showError('请输入正确的邮箱')
+    return
+  }
+
+  try {
+    const { data } = await sendVerifyCode({
+      target: email,
+      scene: 'register'
+    })
+    if (data.code === 200){
+      showSuccess(data.message || '邮箱验证码已发送')
+    } else {
+      showError(data.message || '邮箱验证码发送失败')
+    }
+  } catch (error) {
+    showError(error.response?.data?.message || '邮箱验证码发送失败')
+  }
+
+
+
+}
+
+async function handleSendPhoneCode() {
+  const phone = form.phone.trim()
+  if(!phone){
+    showError('请输入手机号')
+    return
+  }
+  if(!isPhone(phone)){
+    showError('请输入正确的手机号')
+    return
+  }
+
+  try{
+    const { data } = await sendVerifyCode({
+      target: phone,
+      scene: 'register'
+    })
+    if (data.code === 200){
+      showSuccess(data.message || '手机验证码已发送')
+    } else {
+      showError(data.message || '手机验证码发送失败')
+    }
+  } catch (error) {
+    showError(error.response?.data?.message || '手机验证码发送失败')
+  }
+
+}
+
 </script>
 
 <template>
@@ -131,17 +211,49 @@ async function handleRegister() {
             <input v-model="form.nickname" type="text" placeholder="显示名称" />
           </label>
 
-          <div class="form-row">
-            <label>
-              <span>邮箱</span>
-              <input v-model="form.email" type="email" autocomplete="email" placeholder="可选" />
-            </label>
+          <label v-if="form.email.trim()">
+            <span>邮箱</span>
+            <input v-model="form.email" type="email" autocomplete="email" placeholder="可选" />
+          </label>
+            
+          <label>
+            <span>邮箱验证码</span>
+            <div class="code-row">
+              <input
+                v-model="form.emailCode"
+                type="text"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="填写邮箱验证码"
+              />
+              <button type="button" @click="handleSendEmailCode">
+                发送
+              </button>
+            </div>
+          </label>
 
-            <label>
-              <span>手机号</span>
-              <input v-model="form.phone" type="tel" autocomplete="tel" placeholder="可选" />
-            </label>
-          </div>
+        
+          <label>
+            <span>手机号</span>
+            <input v-model="form.phone" type="tel" autocomplete="tel" placeholder="可选" />
+          </label>
+
+          <label v-if="form.email.trim()">
+            <span>手机验证码</span>
+            <div class="code-row">
+              <input 
+                v-model="form.phoneCode"
+                type="text"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="填写手机验证码"
+              />
+              <button type="button" @click="handleSendPhoneCode">
+                发送
+              </button>
+            </div>
+          </label>
+
 
           <button type="submit" :disabled="loading">{{ loading ? '注册中...' : '注册' }}</button>
         </form>

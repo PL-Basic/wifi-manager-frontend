@@ -84,11 +84,11 @@ function finishLogin(auth,account) {
   })
 
   if (form.remember) {
-    localStorage.setItem('lastAccount', form.account.trim())
+    localStorage.setItem('lastAccount', account)
     localStorage.setItem('lastLoginMode', loginMode.value)
 
     const accountKey = loginMode.value === 'username' ? 'lastUsernameAccount' : 'lastContactAccount'
-    localStorage.setItem(accountKey, form.account.trim())
+    localStorage.setItem(accountKey, account)
   } else {
     localStorage.removeItem('lastAccount')
     localStorage.removeItem('lastLoginMode')
@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
             />
           </label>
 
-          <label v-if="loginMode != 'code'">
+          <label v-if="loginMode !== 'code'">
             <span>密码</span>
             <input v-model="form.password" type="password" autocomplete="current-password" placeholder="请输入密码" />
           </label>
