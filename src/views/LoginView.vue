@@ -57,9 +57,19 @@ function switchLoginMode(mode) {
   message.value = ''
   form.password = ''
   form.code = ''
+  showPassword.value = false
 
   const accountKey = mode === 'username' ? 'lastUsernameAccount' : 'lastContactAccount'
   form.account = localStorage.getItem(accountKey) || ''
+}
+
+function switchContactLoginType(type) {
+  if (contactLoginType.value === type) return
+  contactLoginType.value = type
+  message.value = ''
+  form.password = ''
+  form.code = ''
+  showPassword.value = false
 }
 
 function isPhone(value) {
@@ -295,7 +305,7 @@ onBeforeUnmount(() => {
             <div class="password-field">
               <input 
                 v-model="form.password" 
-                type="showPassowrd ? 'text' : 'password'" 
+                :type="showPassword ? 'text' : 'password'" 
                 autocomplete="current-password" 
                 placeholder="请输入密码" 
               />
@@ -331,14 +341,14 @@ onBeforeUnmount(() => {
             <button 
               type="button"
               :class="{ active: contactLoginType === 'password'}"
-              @click="contactLoginType = 'password'"
+              @click="switchContactLoginType('password')"
             >
               密码登录
             </button>
             <button
               type="button"
               :class="{ active: contactLoginType === 'code'}"
-              @click="contactLoginType = 'code'"
+              @click="switchContactLoginType('code')"
             >
               验证码登录
             </button>
