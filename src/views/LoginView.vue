@@ -24,6 +24,8 @@ const messageType = ref('success')
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
 const showPassword = ref(false)
+const codeCooldownMap = reactive({})
+
 
 let codeTimer = null
 let stopSessionSync = null
@@ -41,6 +43,38 @@ const modeCopy = {
   }
 }
 
+function resetCodeState() {
+  form.code = ''
+  codeCooldown.value = 0
+  sendingCode.value = false
+
+  if (codeTimer) {
+    clearInterval(codeTimer)
+    codeTimer = null
+  }
+}
+
+function syncCodeCooldownForAccount() {
+  const account = form.account.trim()
+
+  form.code = ''
+
+  if (codeTimer) {
+    clearInterval(codeTimer)
+    codeTimer = null
+  }
+
+  const expireAt = codeCooldownMap[account]
+
+  if(!expireAt || expireAt <= Date.now()) {
+    codeCooldown.value = 0
+    return
+  }
+
+  const remaining = Math.ceil((expireAt - Date.now()) / 1000)
+  startCodeCooldown(remaining)
+}
+
 function showError(text) {
   message.value = text
   messageType.value = 'error'
@@ -56,11 +90,14 @@ function switchLoginMode(mode) {
   loginMode.value = mode
   message.value = ''
   form.password = ''
-  form.code = ''
+  resetCodeState()
   showPassword.value = false
 
   const accountKey = mode === 'username' ? 'lastUsernameAccount' : 'lastContactAccount'
   form.account = localStorage.getItem(accountKey) || ''
+  if(mode === 'contact') {
+    syncCodeCooldownForAccount()
+  }
 }
 
 function switchContactLoginType(type) {
@@ -68,7 +105,7 @@ function switchContactLoginType(type) {
   contactLoginType.value = type
   message.value = ''
   form.password = ''
-  form.code = ''
+  resetCodeState()
   showPassword.value = false
 }
 
@@ -207,6 +244,7 @@ async function handleSendCode() {
     if(data.code === 200){
       showSuccess(data.message || '验证码已发送')
       startCodeCooldown(60)
+      codeCooldownMap[account] = Date.now() + 60 * 1000
     } else {
       showError(data.message || '验证码发送失败')
     }
@@ -297,6 +335,7 @@ onBeforeUnmount(() => {
               :inputmode="loginMode === 'contact' ? 'email' : 'text'"
               autocomplete="username"
               :placeholder="modeCopy[loginMode].placeholder"
+              @input="loginMode === 'contact' && syncCodeCooldownForAccount()"
             />
           </label>
           
