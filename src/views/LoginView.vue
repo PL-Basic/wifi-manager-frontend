@@ -135,37 +135,37 @@ async function handleLogin() {
     }
   }
 
-    loading.value = true
-    message.value = ''
+  loading.value = true
+  message.value = ''
 
-    try {
-      let response
-      if (isPasswordLogin) {
-        response = await login({
-          loginType: loginMode.value,
-          account,
-          password: form.password
-        })
-      } else {
-        response = await loginByVerifyCode({
-          target: account,
-          code: form.code.trim()
-        })
-      }
-
-      const data = response.data
-      
-      if (data.code === 200) {
-        finishLogin(data.data, account)
-        showSuccess(data.message || '登录成功')
-      } else {
-        showError(data.message || '登录失败')
-      }
-    } catch (error) {
-      showError(error.response?.data?.message || '网络请求失败')
-    } finally {
-      loading.value = false
+  try {
+    let response
+    if (isPasswordLogin) {
+      response = await login({
+        loginType: loginMode.value,
+        account,
+        password: form.password
+      })
+    } else {
+      response = await loginByVerifyCode({
+        target: account,
+        code: form.code.trim()
+      })
     }
+
+    const data = response.data
+    
+    if (data.code === 200) {
+      finishLogin(data.data, account)
+      showSuccess(data.message || '登录成功')
+    } else {
+      showError(data.message || '登录失败')
+    }
+  } catch (error) {
+    showError(error.response?.data?.message || '网络请求失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 async function handleSendCode() {
@@ -208,8 +208,8 @@ async function handleSendCode() {
 
 }
 
-function startCodeCooldown(secends = 60){
-  codeCooldown.value = secends
+function startCodeCooldown(seconds = 60){
+  codeCooldown.value = seconds
   
   if (codeTimer) clearInterval(codeTimer)
 
