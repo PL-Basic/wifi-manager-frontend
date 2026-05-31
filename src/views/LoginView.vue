@@ -23,6 +23,7 @@ const message = ref('')
 const messageType = ref('success')
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
+const showPassword = ref(false)
 
 let codeTimer = null
 let stopSessionSync = null
@@ -291,7 +292,20 @@ onBeforeUnmount(() => {
           
           <label v-if="loginMode === 'username' || (loginMode === 'contact' && contactLoginType === 'password')">
             <span>密码</span>
-            <input v-model="form.password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+            <div class="password-field">
+              <input 
+                v-model="form.password" 
+                type="showPassowrd ? 'text' : 'password'" 
+                autocomplete="current-password" 
+                placeholder="请输入密码" 
+              />
+              <button
+                type="button"
+                @click="showPassword = !showPassword"
+              >
+                {{ showPassword ? '隐藏' : '查看' }}
+              </button>
+            </div>
           </label>
 
           <label v-if="loginMode === 'contact' && contactLoginType === 'code'">
