@@ -75,6 +75,27 @@ function startCooldown(type, seconds = 60){
   }
 }
 
+function resetEmailCodeState() {
+  form.emailCode = ''
+  emailCodeCooldown.value = 0
+  sendingEmailCode.value = false
+
+  if (emailCodeTimer) {
+    clearInterval(emailCodeTimer)
+    emailCodeTimer = null
+  }
+}
+
+function resetPhoneCodeState() {
+  form.phoneCode = ''
+  phoneCodeCooldown.value = 0
+  sendingPhoneCode.value = false
+
+  if(phoneCodeTimer) {
+    clearInterval(phoneCodeTimer)
+    phoneCodeTimer = null
+  }
+}
 
 function validateConfirmPassword() {
   if (!form.confirmPassword) {
@@ -285,7 +306,13 @@ onBeforeUnmount(() => {
 
           <label>
             <span>邮箱</span>
-            <input v-model="form.email" type="email" autocomplete="email" placeholder="可选" />
+            <input 
+              v-model="form.email" 
+              type="email" 
+              autocomplete="email" 
+              placeholder="可选"
+              @input="resetEmailCodeState"
+            />
           </label>
             
           <label v-if="form.email.trim()">
@@ -311,7 +338,13 @@ onBeforeUnmount(() => {
         
           <label>
             <span>手机号</span>
-            <input v-model="form.phone" type="tel" autocomplete="tel" placeholder="可选" />
+            <input 
+              v-model="form.phone" 
+              type="tel" 
+              autocomplete="tel" 
+              placeholder="可选"
+              @input="resetPhoneCodeState"
+              />
           </label>
 
           <label v-if="form.phone.trim()">

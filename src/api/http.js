@@ -6,6 +6,16 @@ const http = axios.create({
   timeout: 15000
 })
 
+function isPublicAuthRequest(config) {
+  const url = config?.url || ''
+  return [
+    '/auth/login',
+    '/auth/register',
+    '/auth/codes',
+    '/auth/code-login'
+  ].some((path) => url.includes(path))
+}
+
 http.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
@@ -22,7 +32,7 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isPublicAuthRequest(error.config)) {
       clearSession('登录状态已过期，请重新登录')
       window.location.href = '/login'
     }
