@@ -23,6 +23,7 @@ const sendingEmailCode = ref(false)
 const sendingPhoneCode = ref(false)
 const emailCodeCooldown = ref(0)
 const phoneCodeCooldown = ref(0)
+const showPassword = ref(false)
 
 let emailCodeTimer = null
 let phoneCodeTimer = null
@@ -45,7 +46,7 @@ function showSuccess(text) {
   messageType.value = 'success'
 }
 
-function startCooldown(type, second = 60){
+function startCooldown(type, seconds = 60){
   const cooldown = type === 'email' ? emailCodeCooldown : phoneCodeCooldown
   const timer = type === 'email' ? emailCodeTimer : phoneCodeTimer
 
@@ -248,7 +249,19 @@ onBeforeUnmount(() => {
           <div class="form-row">
             <label>
               <span>密码</span>
-              <input v-model="form.password" type="password" autocomplete="new-password" placeholder="至少 6 位" />
+              <div class="password-field">
+                <input 
+                  v-model="form.password" 
+                  :type="showPassword ? 'text' : 'password'" 
+                  autocomplete="new-password" 
+                  placeholder="至少 6 位" 
+                />
+                <button 
+                  type="button"
+                  @click="showPassword = !showPassword">
+                  {{ showPassword ? '隐藏' : '查看' }}
+                </button>
+              </div>
             </label>
 
             <label>
@@ -316,7 +329,7 @@ onBeforeUnmount(() => {
                 :disabled="sendingPhoneCode || phoneCodeCooldown > 0"
                 @click="handleSendPhoneCode"
               >
-                {{ phoneCodeCooldown > 0 ? `${phoneCodeCooldown}s 后重发` : sendingPhoneCode ? '发送中' : '发送'}}
+                {{ phoneCodeCooldown > 0 ? `${phoneCodeCooldown}s 后重发` : sendingPhoneCode ? '发送中...' : '发送'}}
               </button>
             </div>
           </label>
