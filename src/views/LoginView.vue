@@ -203,9 +203,7 @@ async function handleSendCode() {
     showError(error.response?.data?.message || '验证码发送失败')
   } finally {
     sendingCode.value = false
-
   }
-
 }
 
 function startCodeCooldown(seconds = 60){

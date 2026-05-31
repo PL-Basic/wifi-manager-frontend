@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import { register, sendVerifyCode } from '@/api/auth'
@@ -19,6 +19,13 @@ const loading = ref(false)
 const message = ref('')
 const messageType = ref('success')
 const confirmPasswordError = ref('')
+const sendingEmailCode = ref(false)
+const sendingPhoneCode = ref(false)
+const emailCodeCooldown = ref(0)
+const phoneCodeCooldown = ref(0)
+
+let emailCodeTimer = null
+let phoneCodeTimer = null
 
 function isPhone(value) {
   return /^1[3-9]\d{9}$/.test(value)
@@ -37,6 +44,36 @@ function showSuccess(text) {
   message.value = text
   messageType.value = 'success'
 }
+
+function startCooldown(type, second = 60){
+  const cooldown = type === 'email' ? emailCodeCooldown : phoneCodeCooldown
+  const timer = type === 'email' ? emailCodeTimer : phoneCodeTimer
+
+  cooldown.value = seconds
+
+  if(timer) clearInterval(timer)
+
+  const nextTimer = setInterval(() =>{
+    cooldown.value -= 1
+
+    if(cooldown.value <= 0) {
+      clearInterval(nextTimer)
+      
+      if(type === 'email'){
+        emailCodeTimer = null
+      }else{
+        phoneCodeTimer = null
+      }
+    }
+  },1000)
+  
+  if (type === 'email') {
+    emailCodeTimer = nextTimer
+  } else {
+    phoneCodeTimer = nextTimer
+  }
+}
+
 
 function validateConfirmPassword() {
   if (!form.confirmPassword) {
@@ -107,6 +144,8 @@ async function handleRegister() {
 }
 
 async function handleSendEmailCode() {
+  if(sendingEmailCode.value || emailCodeCooldown.value >0) return
+
   const email = form.email.trim()
   if(!email) {
     showError('请输入邮箱')
@@ -117,6 +156,9 @@ async function handleSendEmailCode() {
     return
   }
 
+  sendingEmailCode.value = true
+  message.value = ''
+
   try {
     const { data } = await sendVerifyCode({
       target: email,
@@ -124,11 +166,14 @@ async function handleSendEmailCode() {
     })
     if (data.code === 200){
       showSuccess(data.message || '邮箱验证码已发送')
+      startCooldown('email',60)
     } else {
       showError(data.message || '邮箱验证码发送失败')
     }
   } catch (error) {
     showError(error.response?.data?.message || '邮箱验证码发送失败')
+  } finally {
+    sendingEmailCode.value = false
   }
 
 
@@ -136,6 +181,8 @@ async function handleSendEmailCode() {
 }
 
 async function handleSendPhoneCode() {
+  if(sendingPhoneCode.value || phoneCodeCooldown.value > 0) return
+
   const phone = form.phone.trim()
   if(!phone){
     showError('请输入手机号')
@@ -146,6 +193,9 @@ async function handleSendPhoneCode() {
     return
   }
 
+  sendingPhoneCode.value = true
+  message.value = ''
+
   try{
     const { data } = await sendVerifyCode({
       target: phone,
@@ -153,14 +203,22 @@ async function handleSendPhoneCode() {
     })
     if (data.code === 200){
       showSuccess(data.message || '手机验证码已发送')
+      startCooldown('phone',60)
     } else {
       showError(data.message || '手机验证码发送失败')
     }
   } catch (error) {
     showError(error.response?.data?.message || '手机验证码发送失败')
+  } finally {
+    sendingPhoneCode.value = false
   }
 
 }
+
+onBeforeUnmount(() => {
+  if (emailCodeTimer) clearInterval(emailCodeTimer)
+  if (phoneCodeTimer) clearInterval(phoneCodeTimer)
+})
 
 </script>
 
@@ -227,8 +285,12 @@ async function handleSendPhoneCode() {
                 autocomplete="one-time-code"
                 placeholder="填写邮箱验证码"
               />
-              <button type="button" @click="handleSendEmailCode">
-                发送
+              <button 
+              type="button" 
+              :disabled="sendingEmailCode || emailCodeCooldown > 0" 
+              @click="handleSendEmailCode"
+              >
+                {{ emailCodeCooldown > 0 ? `${emailCodeCooldown}s 后重发` : sendingEmailCode ? '发送中...' : '发送'}}
               </button>
             </div>
           </label>
@@ -249,8 +311,12 @@ async function handleSendPhoneCode() {
                 autocomplete="one-time-code"
                 placeholder="填写手机验证码"
               />
-              <button type="button" @click="handleSendPhoneCode">
-                发送
+              <button 
+                type="button" 
+                :disabled="sendingPhoneCode || phoneCodeCooldown > 0"
+                @click="handleSendPhoneCode"
+              >
+                {{ phoneCodeCooldown > 0 ? `${phoneCodeCooldown}s 后重发` : sendingPhoneCode ? '发送中' : '发送'}}
               </button>
             </div>
           </label>

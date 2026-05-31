@@ -327,7 +327,7 @@ button:disabled {
   gap: 8px;
 }
 
-.auth-panel--login  .code-row button {
+.auth-panel--login .code-row button {
   min-height: 44px;
   white-space: nowrap;
   padding-inline: 12px;
