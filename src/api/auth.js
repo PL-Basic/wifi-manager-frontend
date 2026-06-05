@@ -15,3 +15,7 @@ export function sendVerifyCode(data){
 export function loginByVerifyCode(data){
   return http.post('/auth/code-login',data)
 }
+
+export function resetPassword(data){
+  return http.post('/auth/reset-password',data)
+}

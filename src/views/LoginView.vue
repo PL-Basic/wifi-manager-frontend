@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
-import { login,loginByVerifyCode,sendVerifyCode } from '@/api/auth'
+import { login, loginByVerifyCode, sendVerifyCode, resetPassword } from '@/api/auth'
 import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/session'
 
 const router = useRouter()
@@ -12,10 +12,12 @@ const form = reactive({
     || localStorage.getItem('lastAccount')
     || '',
   password: '',
+  newPassword: '',
   code: '',
   remember: true
 })
 
+const authMode = ref('login')
 const loginMode = ref(initialLoginMode)
 const contactLoginType = ref('password')
 const loading = ref(false)
@@ -41,6 +43,32 @@ const modeCopy = {
     label: '手机号 / 邮箱',
     placeholder: '请输入手机号或邮箱'
   }
+}
+
+function enterResetPasswordMode(){
+  authMode.value = 'resetPassword'
+  loginMode.value = 'contact'
+  contactLoginType.value = 'code'
+  message.value = ''
+  form.password = ''
+  form.newPassword = ''
+  resetCodeState()
+  showPassword.value = false
+  syncCodeCooldownForAccount()
+}
+
+function backToLoginMode(){
+  authMode.value = 'login'
+  message.value = ''
+  form.newPassword = ''
+  resetCodeState()
+  showPassword.value = false
+  syncCodeCooldownForAccount()
+}
+
+
+function currentCodeScene(){
+  return authMode.value === 'resetPassword' ? 'reset_password' : 'login'
 }
 
 function resetCodeState() {
@@ -237,7 +265,7 @@ async function handleSendCode() {
   try{
     const{ data } = await sendVerifyCode({
       target: account,
-      scene: 'login'
+      scene: currentCodeScene()
     })
   
 
@@ -253,6 +281,66 @@ async function handleSendCode() {
   } finally {
     sendingCode.value = false
   }
+}
+
+async function handleResetPassword() {
+  if (redirectIfLoggedIn()) return
+  
+  const account = form.account.trim()
+  const code = form.code.trim()
+
+  if(!account) {
+    showError('请输入手机号或邮箱')
+    return
+  }
+
+  if(!isPhone(account) && !isEmail(account)) {
+    showError('请输入正确的手机号或邮箱')
+    return
+  }
+
+  if(!code) {
+    showError('请输入验证码')
+    return
+  }
+
+  if(!form.newPassword) {
+    showError('请输入新密码')
+    return
+  }
+
+  if(form.newPassword.length < 6 || form.newPassword.length > 20) {
+    showError('新密码长度需要在6-20之间')
+    return
+  }
+
+  loading.value = true
+  message.value = ''
+
+  try{
+    const { data } = await resetPassword({
+      target: account,
+      code,
+      newPassword: form.newPassword
+    })
+
+    if(data.code === 200) {
+      showSuccess(data.message || '密码重置成功，请使用新密码登录哦')
+      authMode.value = 'login'
+      contactLoginType.value = 'password'
+      form.password = ''
+      form.newPassword = ''
+      form.code = ''
+      resetCodeState()
+    }else{
+      showError(data.message || '密码重置失败')
+    } 
+  } catch (error) {
+    showError(error.response?.data?.message || '密码重置失败')
+  } finally {
+    loading.value = false
+  }
+
 }
 
 function startCodeCooldown(seconds = 60){
@@ -304,11 +392,11 @@ onBeforeUnmount(() => {
 
       <section class="auth-panel auth-panel--login">
         <div class="auth-copy">
-          <p class="eyebrow">账号登录</p>
-          <h2>{{ modeCopy[loginMode].title }}</h2>
+          <p class="eyebrow">{{ authMode === 'resetPassword' ? '账号找回' : '账号登录'}}</p>
+          <h2>{{ authMode === 'resetPassword' ? '重置密码' : modeCopy[loginMode].title }}</h2>
         </div>
 
-        <div class="auth-mode-switch" role="tablist" aria-label="登录账号类型">
+        <div v-if="authMode === 'login'" class="auth-mode-switch" role="tablist" aria-label="登录账号类型">
           <button
             type="button"
             :class="{ active: loginMode === 'username' }"
@@ -326,7 +414,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <form class="auth-form" @submit.prevent="handleLogin">
+        <form v-if="authMode === 'login'" class="auth-form" @submit.prevent="handleLogin">
           <label>
             <span>{{ modeCopy[loginMode].label }}</span>
             <input
@@ -393,12 +481,88 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
+          <div class="form-actions">
+            <button 
+              type="button" 
+              class="text-button"
+              @click="enterResetPasswordMode">
+              忘记密码？
+            </button>
+          </div>
+
           <label class="check-line">
             <input v-model="form.remember" type="checkbox" />
             <span>记住账号</span>
           </label>
 
           <button type="submit" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
+        </form>
+        
+        <form v-else class="auth-form" @submit.prevent="handleResetPassword">
+          <label>
+            <span>手机号 / 邮箱</span>
+            <input 
+              v-model="form.account"
+              type="text"
+              inputmode="email"
+              autocomplete="username"
+              placeholder="请输入手机号或邮箱"
+              @input="syncCodeCooldownForAccount"
+            />
+          </label>
+          
+          <label>
+            <span>验证码</span>
+            <div class="code-row">
+              <input
+                v-model="form.code"
+                type="text"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="请输入验证码"
+              />
+              <button
+                type="button"
+                :disabled="sendingCode || codeCooldown >0"
+                @click="handleSendCode"
+              >
+                {{ codeCooldown > 0 ? `${codeCooldown}s 后重发` : sendingCode ? '发送中...' : '发送验证码'}}
+              </button>
+            </div>
+          </label>
+
+          <label>
+            <span>新密码</span>
+            <div class="password-field">
+              <input 
+                v-model="form.newPassword"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                placeholder="请输入新密码"
+              />
+              <button 
+                type="button"
+                @click="showPassword = !showPassword">
+                {{ showPassword ? '隐藏' : '查看' }}
+              </button>
+            </div>
+          </label>
+
+          <div class="form-actions form-actions--split">
+            <button
+              type="button"
+              class="text-button"
+              @click="backToLoginMode">
+              返回登录
+            </button>
+          </div>
+
+          <button 
+            type="submit"
+            :disabled="loading">
+            {{ loading ? '重置中...' : '重置密码' }}
+          </button> 
+
         </form>
 
         <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
