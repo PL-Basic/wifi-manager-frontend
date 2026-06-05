@@ -13,6 +13,7 @@ const form = reactive({
     || '',
   password: '',
   newPassword: '',
+  confirmPassword: '',
   code: '',
   remember: true
 })
@@ -49,6 +50,7 @@ function enterResetPasswordMode(){
   authMode.value = 'resetPassword'
   loginMode.value = 'contact'
   contactLoginType.value = 'code'
+  form.confirmPassword = ''
   message.value = ''
   form.password = ''
   form.newPassword = ''
@@ -61,6 +63,7 @@ function backToLoginMode(){
   authMode.value = 'login'
   message.value = ''
   form.newPassword = ''
+  form.confirmPassword = ''
   resetCodeState()
   showPassword.value = false
   syncCodeCooldownForAccount()
@@ -111,6 +114,26 @@ function showError(text) {
 function showSuccess(text) {
   message.value = text
   messageType.value = 'success'
+}
+
+function resolveSendCodeError(error) {
+  if (error.code === 'ECONNABORTED') {
+    return '请求超时，请稍后查看邮箱或重新发送验证码'
+  }
+
+  if (!error.response) {
+    return '网络连接异常，请检查网络后重试'
+  }
+
+  if (error.response.status === 429) {
+    return error.response.data?.message || '请求过于频繁，请稍后再试'
+  }
+
+  if (error.response.status >= 500) {
+    return '服务器处理异常，请稍后重试'
+  }
+
+  return error.response.data?.message || '验证码发送失败'
 }
 
 function switchLoginMode(mode) {
@@ -277,7 +300,7 @@ async function handleSendCode() {
       showError(data.message || '验证码发送失败')
     }
   } catch (error) {
-    showError(error.response?.data?.message || '验证码发送失败')
+    showError(resolveSendCodeError(error))
   } finally {
     sendingCode.value = false
   }
@@ -314,6 +337,16 @@ async function handleResetPassword() {
     return
   }
 
+  if (!form.confirmPassword) {
+    showError('请再次输入新密码')
+    return
+  }
+
+  if (form.newPassword !== form.confirmPassword) {
+    showError('两次输入的新密码不一致')
+    return
+  }
+
   loading.value = true
   message.value = ''
 
@@ -330,6 +363,7 @@ async function handleResetPassword() {
       contactLoginType.value = 'password'
       form.password = ''
       form.newPassword = ''
+      form.confirmPassword = ''
       form.code = ''
       resetCodeState()
     }else{
@@ -481,21 +515,21 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="form-actions">
-            <button 
-              type="button" 
-              class="text-button"
-              @click="enterResetPasswordMode">
-              忘记密码？
-            </button>
-          </div>
-
           <label class="check-line">
             <input v-model="form.remember" type="checkbox" />
             <span>记住账号</span>
           </label>
 
           <button type="submit" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
+        
+          <div class="password-recovery">
+            <a
+              href=""
+              class="auth-inline-link"
+              @click.prevent="enterResetPasswordMode">
+              忘记密码？
+            </a>
+          </div>
         </form>
         
         <form v-else class="auth-form" @submit.prevent="handleResetPassword">
@@ -511,6 +545,33 @@ onBeforeUnmount(() => {
             />
           </label>
           
+          <label>
+            <span>新密码</span>
+            <div class="password-field">
+              <input
+                v-model="form.newPassword"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                placeholder="请输入新密码"
+              />
+              <button
+                type="button" 
+                @click="showPassword = !showPassword">
+                {{ showPassword ? '隐藏' : '查看' }}
+              </button>
+            </div>
+          </label>
+
+          <label>
+            <span>确认新密码</span>
+            <input
+              v-model="form.confirmPassword"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="new-password"
+              placeholder="请再次输入新密码"
+            />
+          </label>
+
           <label>
             <span>验证码</span>
             <div class="code-row">
@@ -531,32 +592,6 @@ onBeforeUnmount(() => {
             </div>
           </label>
 
-          <label>
-            <span>新密码</span>
-            <div class="password-field">
-              <input 
-                v-model="form.newPassword"
-                :type="showPassword ? 'text' : 'password'"
-                autocomplete="new-password"
-                placeholder="请输入新密码"
-              />
-              <button 
-                type="button"
-                @click="showPassword = !showPassword">
-                {{ showPassword ? '隐藏' : '查看' }}
-              </button>
-            </div>
-          </label>
-
-          <div class="form-actions form-actions--split">
-            <button
-              type="button"
-              class="text-button"
-              @click="backToLoginMode">
-              返回登录
-            </button>
-          </div>
-
           <button 
             type="submit"
             :disabled="loading">
@@ -566,8 +601,26 @@ onBeforeUnmount(() => {
         </form>
 
         <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
-        <p class="auth-switch">没有账号？<router-link to="/register">创建账号</router-link></p>
-      </section>
+        
+        <div v-if="authMode === 'login'" class="auth-switch">
+          <span>
+            没有账号？
+            <router-link to="/register">
+              创建账号
+            </router-link>
+          </span>
+        </div>
+       
+        <p v-else class="auth-switch">
+          想起密码了？
+          <a
+            href=""
+            class="auth-inline-link"
+            @click.prevent="backToLoginMode">
+            返回登录
+          </a>
+        </p>
+      </section>  
     </main>
   </div>
 </template>

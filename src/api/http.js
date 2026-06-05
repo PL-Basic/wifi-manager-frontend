@@ -12,7 +12,8 @@ function isPublicAuthRequest(config) {
     '/auth/login',
     '/auth/register',
     '/auth/codes',
-    '/auth/code-login'
+    '/auth/code-login',
+    '/auth/reset-password'
   ].some((path) => url.includes(path))
 }
 

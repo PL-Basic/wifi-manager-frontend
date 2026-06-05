@@ -441,9 +441,31 @@ button:disabled {
   color: #7dd3fc;
 }
 
+.password-recovery {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
 .auth-switch {
-  margin: 16px 0 0;
-  color: #cbd5e1;
+  margin-top: 18px;
+  text-align: right;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 14px;
+}
+
+.auth-inline-link,
+.auth-switch a {
+  color: #93c5fd;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.auth-inline-link:hover,
+.auth-switch a:hover {
+  color: #bfdbfe;
+  text-decoration: underline;
 }
 
 .auth-switch a {
