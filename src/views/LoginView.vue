@@ -136,6 +136,29 @@ function resolveSendCodeError(error) {
   return error.response.data?.message || '验证码发送失败'
 }
 
+function resolveLoginErrorMessage(data) {
+  const status = data?.data?.status
+
+  if (status === 'ACCOUNT_LOCKED') {
+    return data.message || '密码错误次数过多，请稍后再试'
+  }
+
+  if (status === 'ACCOUNT_DISABLED') {
+    return data.message || '账号已被禁用，请联系管理员'
+  }
+
+  if (status === 'ACCOUNT_NOT_FOUND') {
+    return data.message || '账号不存在'
+  }
+
+  if (status === 'PASSWORD_ERROR') {
+    return data.message || '账号或密码错误'
+  }
+
+  return data?.message || '登录失败'
+
+}
+
 function switchLoginMode(mode) {
   if (loginMode.value === mode) return
   loginMode.value = mode
@@ -258,10 +281,11 @@ async function handleLogin() {
       finishLogin(data.data, account)
       showSuccess(data.message || '登录成功')
     } else {
-      showError(data.message || '登录失败')
+      showError(resolveLoginErrorMessage(data))
     }
   } catch (error) {
-    showError(error.response?.data?.message || '网络请求失败')
+    const responseData = error.response?.data
+    showError( responseData ? resolveLoginErrorMessage(responseData) : '网络请求失败')
   } finally {
     loading.value = false
   }
