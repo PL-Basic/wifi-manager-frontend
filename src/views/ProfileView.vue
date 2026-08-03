@@ -1,15 +1,37 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import StarrySky from '@/components/StarrySky.vue'
-import LocationMap from '@/components/LocationMap.vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import {
+  ChevronRight,
+  CreditCard,
+  KeyRound,
+  MapPin,
+  ReceiptText,
+  RefreshCcw,
+  ShoppingBag
+} from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
 import StateBlock from '@/components/StateBlock.vue'
-import { getMyLocations, getMyProfile, updateMyProfile, uploadAvatar } from '@/api/admin'
+import { getMyProfile, updateMyProfile, uploadMyAvatar } from '@/api/account'
+import {
+  getMyEntitlement,
+  getMyUsageLogs,
+  getOrders,
+  getRefunds
+} from '@/api/entitlements'
 import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
-import { clearSession, getStoredUsername, onSessionChange, parseTokenPayload, syncSessionUser } from '@/utils/session'
+import { getStoredUsername, parseTokenPayload, syncSessionUser } from '@/utils/session'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { resolveOrderStatus, resolveRefundStatus } from '@/config/operationStatus'
+import {
+  entitlementModeLabel,
+  entitlementStatusLabel,
+  formatDateTime,
+  formatDuration,
+  formatMoney
+} from '@/utils/billing'
+import './operations/operations.css'
+import './billing.css'
 
-const router = useRouter()
-const activeTab = ref('profile')
 const profile = reactive({
   userId: '',
   username: getStoredUsername(),
@@ -18,19 +40,32 @@ const profile = reactive({
   phone: '',
   avatar: ''
 })
-const locations = ref([])
+const account = reactive({
+  entitlement: null,
+  orders: [],
+  usage: [],
+  refunds: [],
+  orderTotal: 0,
+  refundTotal: 0
+})
 const loading = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
+const profileBusy = computed(() => saving.value || uploading.value)
 const message = ref('')
 const messageType = ref('success')
-let stopSessionSync = null
-const userId = computed(() => {
-  return parseTokenPayload()?.sub || ''
-})
+const loadError = ref('')
+const userId = computed(() => parseTokenPayload()?.sub || '')
 
-function formatTime(value) {
-  if (!value) return '-'
-  return value.replace('T', ' ')
+function unwrap(response, fallback) {
+  if (response.data?.code !== 200) throw new Error(response.data?.message || fallback)
+  return response.data.data
+}
+
+function readableError(cause, fallback) {
+  return cause instanceof Error && !cause.response
+    ? (cause.message || fallback)
+    : getApiErrorMessage(cause, fallback)
 }
 
 function initials() {
@@ -41,62 +76,83 @@ function avatarSrc(value) {
   return resolveAvatarUrl(value)
 }
 
-function cleanText(value) {
-  return typeof value === 'string' ? value.trim() : value
-}
-
-function logout() {
-  clearSession('')
-  router.push('/login')
-}
-
 async function loadData() {
-  if (!userId.value) return
+  if (!userId.value || loading.value || profileBusy.value) return
   loading.value = true
-  message.value = ''
-  messageType.value = 'success'
+  loadError.value = ''
+
+  const results = await Promise.allSettled([
+    getMyProfile(userId.value),
+    getMyEntitlement(),
+    getOrders({ current: 1, size: 4 }),
+    getMyUsageLogs({ current: 1, size: 4 }),
+    getRefunds({ current: 1, size: 4 })
+  ])
+  const errors = []
+
   try {
-    const [profileResp, locationResp] = await Promise.all([
-      getMyProfile(userId.value),
-      getMyLocations({ current: 1, size: 10, userId: userId.value })
-    ])
-    if (profileResp.data.code === 200) {
-      Object.assign(profile, profileResp.data.data)
-      syncSessionUser(profile)
+    const data = results[0].status === 'fulfilled'
+      ? unwrap(results[0].value, '个人资料加载失败')
+      : (() => { throw results[0].reason })()
+    if (data) {
+      Object.assign(profile, data)
+      syncSessionUser(data)
     }
-    if (locationResp.data.code === 200) {
-      locations.value = locationResp.data.data.records || []
-    }
-  } catch (error) {
-    message.value = error.response?.data?.message || '加载失败'
-    messageType.value = 'error'
-  } finally {
-    loading.value = false
+  } catch (cause) {
+    errors.push(readableError(cause, '个人资料加载失败'))
   }
+
+  try {
+    account.entitlement = results[1].status === 'fulfilled'
+      ? unwrap(results[1].value, '权益加载失败')
+      : (() => { throw results[1].reason })()
+  } catch (cause) {
+    errors.push(readableError(cause, '权益加载失败'))
+  }
+
+  const pageTargets = [
+    { result: results[2], key: 'orders', totalKey: 'orderTotal', fallback: '订单加载失败' },
+    { result: results[3], key: 'usage', fallback: '使用流水加载失败' },
+    { result: results[4], key: 'refunds', totalKey: 'refundTotal', fallback: '退款加载失败' }
+  ]
+
+  pageTargets.forEach(({ result, key, totalKey, fallback }) => {
+    try {
+      const data = result.status === 'fulfilled'
+        ? (unwrap(result.value, fallback) || {})
+        : (() => { throw result.reason })()
+      account[key] = Array.isArray(data.records) ? data.records : []
+      if (totalKey) account[totalKey] = Number(data.total) || 0
+    } catch (cause) {
+      errors.push(readableError(cause, fallback))
+    }
+  })
+
+  loadError.value = Array.from(new Set(errors)).join('；')
+  loading.value = false
 }
 
 async function saveProfile() {
+  if (profileBusy.value || !userId.value) return
+  const nickname = String(profile.nickname ?? '').trim()
+
+  if (!nickname || nickname.length > 64) {
+    message.value = !nickname ? '昵称不能为空' : '昵称不能超过 64 个字符'
+    messageType.value = 'error'
+    return
+  }
+
   saving.value = true
   message.value = ''
-  messageType.value = 'success'
+
   try {
-    const { data } = await updateMyProfile(userId.value, {
-      nickname: cleanText(profile.nickname),
-      email: cleanText(profile.email),
-      phone: cleanText(profile.phone),
-      avatar: cleanText(profile.avatar)
-    })
-    if (data.code === 200) {
-      Object.assign(profile, data.data)
-      syncSessionUser(profile)
-      message.value = '保存成功'
-      messageType.value = 'success'
-    } else {
-      message.value = data.message || '保存失败'
-      messageType.value = 'error'
-    }
+    const data = unwrap(await updateMyProfile(userId.value, { nickname }), '昵称保存失败')
+    Object.assign(profile, data)
+    syncSessionUser(data)
+    message.value = '昵称保存成功'
+    messageType.value = 'success'
   } catch (error) {
-    message.value = error.response?.data?.message || '保存失败'
+    message.value = readableError(error, '昵称保存失败')
     messageType.value = 'error'
   } finally {
     saving.value = false
@@ -104,154 +160,125 @@ async function saveProfile() {
 }
 
 async function chooseAvatar(event) {
+  const file = event.target.files?.[0]
+  if (!file || profileBusy.value || !userId.value) {
+    event.target.value = ''
+    return
+  }
+
+  uploading.value = true
   message.value = ''
-  messageType.value = 'success'
-  saving.value = true
+
   try {
-    const file = event.target.files?.[0]
-    if (!validateAvatarFile(file)) return
-    const { data } = await uploadAvatar(userId.value, file)
-    if (data.code === 200) {
-      profile.avatar = data.data?.url || ''
-      syncSessionUser(profile)
-      message.value = '头像上传成功'
-      messageType.value = 'success'
-    } else {
-      message.value = data.message || '头像上传失败'
-      messageType.value = 'error'
-    }
+    validateAvatarFile(file)
+    const data = unwrap(await uploadMyAvatar(userId.value, file), '头像上传失败')
+    if (!data?.url) throw new Error('头像上传结果缺少访问地址')
+    profile.avatar = data.url
+    syncSessionUser({})
+    message.value = '头像上传成功'
+    messageType.value = 'success'
   } catch (error) {
-    message.value = error.response?.data?.message || error.message || '头像上传失败'
+    message.value = readableError(error, '头像上传失败')
     messageType.value = 'error'
   } finally {
-    saving.value = false
+    uploading.value = false
     event.target.value = ''
   }
 }
 
-onMounted(() => {
-  loadData()
-  stopSessionSync = onSessionChange(() => {
-    window.location.reload()
-  })
-})
-
-onBeforeUnmount(() => {
-  if (stopSessionSync) stopSessionSync()
-})
+onMounted(loadData)
 </script>
 
 <template>
-  <div class="admin-starry">
-    <StarrySky />
-    <main class="dashboard-shell glass-shell profile-shell">
-      <aside class="dashboard-nav glass-nav">
-        <div>
-          <p class="nav-kicker">Wifi Manager</p>
-          <h1>个人中心</h1>
-        </div>
-        <nav>
-          <button type="button" :class="{ active: activeTab === 'profile' }" @click="activeTab = 'profile'">我的资料</button>
-          <button type="button" :class="{ active: activeTab === 'locations' }" @click="activeTab = 'locations'">我的定位</button>
-        </nav>
-        <button class="ghost-button" type="button" @click="logout">退出登录</button>
-      </aside>
+  <section class="workspace-view profile-workspace billing-page">
+    <header class="dashboard-header">
+      <div>
+        <p class="page-kicker">个人中心</p>
+        <h2>{{ profile.nickname || profile.username || '账户总览' }}</h2>
+      </div>
+      <button class="secondary-button" type="button" :disabled="loading || profileBusy" @click="loadData">
+        <RefreshCcw :size="16" />{{ loading ? '刷新中...' : '刷新账户' }}
+      </button>
+    </header>
 
-      <section class="dashboard-main glass-main">
-        <header class="dashboard-header">
-          <div>
-            <p class="page-kicker">普通用户</p>
-            <h2>{{ profile.nickname || profile.username }}</h2>
+    <p v-if="loadError" class="alert error">{{ loadError }}</p>
+    <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
+
+    <section class="billing-summary" aria-label="账户权益摘要">
+      <article class="billing-metric"><span>剩余网络时长</span><strong>{{ formatDuration(account.entitlement?.remainingSeconds) }}</strong></article>
+      <article class="billing-metric"><span>权益模式</span><strong>{{ entitlementModeLabel(account.entitlement?.mode) }}</strong></article>
+      <article class="billing-metric"><span>权益状态</span><strong>{{ account.entitlement ? entitlementStatusLabel(account.entitlement.status) : '-' }}</strong></article>
+      <article class="billing-metric"><span>订阅到期</span><strong>{{ formatDateTime(account.entitlement?.subscriptionEndTime) }}</strong></article>
+    </section>
+
+    <section class="profile-account-layout">
+      <form class="profile-panel glass-panel" @submit.prevent="saveProfile">
+        <div class="avatar-editor">
+          <div class="avatar-preview">
+            <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" alt="当前头像" />
+            <span v-else>{{ initials() }}</span>
           </div>
-          <button type="button" :disabled="loading" @click="loadData">刷新</button>
-        </header>
+          <div>
+            <strong>{{ profile.nickname || profile.username }}</strong>
+            <p>{{ profile.username }}</p>
+          </div>
+        </div>
 
-        <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
+        <label><span>昵称</span><input v-model="profile.nickname" maxlength="64" :disabled="profileBusy" /></label>
+        <label><span>上传头像</span><input type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" :disabled="profileBusy" @change="chooseAvatar" /></label>
 
-        <section v-if="activeTab === 'profile'" class="profile-grid">
-          <form class="profile-panel glass-panel" @submit.prevent="saveProfile">
-            <div class="avatar-editor">
-              <div class="avatar-preview">
-                <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" alt="头像预览" />
-                <span v-else>{{ initials() }}</span>
-              </div>
-              <div>
-                <strong>{{ profile.nickname || profile.username }}</strong>
-                <p>头像会在保存后同步到个人资料。</p>
-              </div>
-            </div>
+        <div class="profile-binding-list">
+          <div class="profile-binding-row"><span>用户名</span><strong>{{ profile.username || '-' }}</strong></div>
+          <div class="profile-binding-row"><span>邮箱绑定</span><strong>{{ profile.email || '未绑定' }}</strong></div>
+          <div class="profile-binding-row"><span>手机绑定</span><strong>{{ profile.phone || '未绑定' }}</strong></div>
+        </div>
 
-            <label>
-              <span>用户名</span>
-              <input v-model="profile.username" disabled />
-            </label>
-            <label>
-              <span>昵称</span>
-              <input v-model="profile.nickname" />
-            </label>
-            <label>
-              <span>邮箱</span>
-              <input v-model="profile.email" type="email" />
-            </label>
-            <label>
-              <span>手机号</span>
-              <input v-model="profile.phone" type="tel" />
-            </label>
-            <label>
-              <span>头像地址</span>
-              <input v-model="profile.avatar" placeholder="https://..." />
-            </label>
-            <label>
-              <span>上传头像</span>
-              <input type="file" accept="image/*" @change="chooseAvatar" />
-            </label>
-            <button type="submit" :disabled="saving">{{ saving ? '保存中...' : '保存资料' }}</button>
-          </form>
-        </section>
+        <button type="submit" :disabled="profileBusy">{{ saving ? '保存中...' : uploading ? '头像上传中...' : '保存昵称' }}</button>
+      </form>
 
-        <template v-else>
-          <LocationMap class="location-panel" :locations="locations" title="我的 GPS 轨迹" />
+      <article class="glass-panel billing-panel">
+        <header class="billing-section-heading"><div><p class="page-kicker">账户服务</p><h3>常用操作</h3></div></header>
+        <nav class="billing-link-list" aria-label="账户服务">
+          <RouterLink class="billing-link" to="/app/purchase"><span><ShoppingBag :size="18" /><span>购买权益<small>选择固定时长、订阅或自定义金额</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/entitlements"><span><ReceiptText :size="18" /><span>权益与使用流水<small>查看购买批次和每次时长变化</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/orders"><span><CreditCard :size="18" /><span>订单记录<small>{{ account.orderTotal }} 笔订单</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/refunds"><span><RefreshCcw :size="18" /><span>退款记录<small>{{ account.refundTotal }} 笔退款</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/account-security"><span><KeyRound :size="18" /><span>账户安全<small>管理密码和社交身份绑定</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/location"><span><MapPin :size="18" /><span>我的定位<small>查看个人定位授权和历史</small></span></span><ChevronRight :size="18" /></RouterLink>
+        </nav>
+      </article>
+    </section>
 
-          <section class="table-panel glass-panel">
-            <div class="table-summary">
-              <strong>{{ locations.length }}</strong>
-              <span>条我的定位记录</span>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>MAC</th>
-                  <th>纬度</th>
-                  <th>经度</th>
-                  <th>精度</th>
-                  <th>来源</th>
-                  <th>上报时间</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="loading">
-                  <td colspan="6">
-                    <StateBlock type="loading" title="正在加载" text="正在同步你的定位记录" />
-                  </td>
-                </tr>
-                <tr v-else-if="locations.length === 0">
-                  <td colspan="6">
-                    <StateBlock title="暂无定位" text="当前账号还没有 GPS 上报记录" />
-                  </td>
-                </tr>
-                <tr v-for="item in locations" :key="item.id">
-                  <td>{{ item.mac }}</td>
-                  <td>{{ item.latitude }}</td>
-                  <td>{{ item.longitude }}</td>
-                  <td>{{ item.accuracy || '-' }}</td>
-                  <td>{{ item.source || '-' }}</td>
-                  <td>{{ formatTime(item.reportTime) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-        </template>
-      </section>
-    </main>
-  </div>
+    <section class="billing-records" aria-label="账户近期记录">
+      <article class="glass-panel billing-panel">
+        <header class="billing-section-heading"><div><h3>近期订单</h3><p>最近 {{ account.orders.length }} 条</p></div><RouterLink to="/app/orders">全部订单</RouterLink></header>
+        <ul v-if="account.orders.length" class="billing-record-list">
+          <li v-for="row in account.orders" :key="row.orderNo" class="billing-record-row">
+            <strong>{{ row.orderType === 'REWARD' ? '超级管理员奖励' : row.productCode }}</strong><span>{{ formatMoney(row.amountCents) }} · {{ resolveOrderStatus(row.status).label }}</span><small>{{ formatDateTime(row.createTime) }}</small>
+          </li>
+        </ul>
+        <StateBlock v-else title="暂无订单" />
+      </article>
+
+      <article class="glass-panel billing-panel">
+        <header class="billing-section-heading"><div><h3>近期使用</h3><p>时长变化流水</p></div><RouterLink to="/app/entitlements">全部流水</RouterLink></header>
+        <ul v-if="account.usage.length" class="billing-record-list">
+          <li v-for="row in account.usage" :key="row.id" class="billing-record-row">
+            <strong>{{ row.reason || '权益变动' }}</strong><span>{{ row.changeSeconds > 0 ? '+' : '' }}{{ formatDuration(row.changeSeconds) }}</span><small>{{ formatDateTime(row.createTime) }}</small>
+          </li>
+        </ul>
+        <StateBlock v-else title="暂无使用流水" />
+      </article>
+
+      <article class="glass-panel billing-panel">
+        <header class="billing-section-heading"><div><h3>近期退款</h3><p>申请和处理状态</p></div><RouterLink to="/app/refunds">全部退款</RouterLink></header>
+        <ul v-if="account.refunds.length" class="billing-record-list">
+          <li v-for="row in account.refunds" :key="row.refundNo" class="billing-record-row">
+            <strong>{{ row.refundNo }}</strong><span>{{ formatMoney(row.requestedAmountCents) }} · {{ resolveRefundStatus(row.status).label }}</span><small>{{ formatDateTime(row.createTime) }}</small>
+          </li>
+        </ul>
+        <StateBlock v-else title="暂无退款记录" />
+      </article>
+    </section>
+  </section>
 </template>

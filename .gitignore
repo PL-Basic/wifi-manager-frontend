@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# 本机和服务器环境文件不进入仓库，只提交无敏感值的模板。
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

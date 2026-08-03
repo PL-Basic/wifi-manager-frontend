@@ -3,6 +3,7 @@ import { onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import { register, sendVerifyCode } from '@/api/auth'
+import { getApiErrorMessage } from '@/utils/apiError'
 
 const router = useRouter()
 const form = reactive({
@@ -159,7 +160,7 @@ async function handleRegister() {
       showError(data.message || '注册失败')
     }
   } catch (error) {
-    showError(error.response?.data?.message || '网络请求失败')
+    showError(getApiErrorMessage(error, '注册失败'))
   } finally {
     loading.value = false
   }
@@ -193,7 +194,7 @@ async function handleSendEmailCode() {
       showError(data.message || '邮箱验证码发送失败')
     }
   } catch (error) {
-    showError(error.response?.data?.message || '邮箱验证码发送失败')
+    showError(getApiErrorMessage(error, '邮箱验证码发送失败'))
   } finally {
     sendingEmailCode.value = false
   }
@@ -230,7 +231,7 @@ async function handleSendPhoneCode() {
       showError(data.message || '手机验证码发送失败')
     }
   } catch (error) {
-    showError(error.response?.data?.message || '手机验证码发送失败')
+    showError(getApiErrorMessage(error, '手机验证码发送失败'))
   } finally {
     sendingPhoneCode.value = false
   }

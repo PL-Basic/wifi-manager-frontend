@@ -1,0 +1,179 @@
+.operations-page {
+  min-width: 0;
+}
+
+.operations-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.operations-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.operations-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  scrollbar-color: var(--wm-border-strong) transparent;
+  scrollbar-gutter: stable;
+}
+
+.operations-table {
+  min-width: 1050px;
+}
+
+.operations-table th,
+.operations-table td {
+  white-space: nowrap;
+}
+
+.operations-table .wrap-cell {
+  max-width: 260px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.operations-panel {
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.operations-panel h3 {
+  margin-top: 0;
+  color: var(--wm-text);
+  font-size: 18px;
+}
+
+.operations-detail {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  margin: 0;
+}
+
+.operations-detail dt,
+.operations-detail dd {
+  margin: 0;
+  border-bottom: 1px solid var(--wm-border);
+  padding: 8px 0;
+}
+
+.operations-detail dt {
+  color: var(--wm-muted);
+}
+
+.operations-detail dd {
+  overflow-wrap: anywhere;
+  color: var(--wm-text-soft);
+}
+
+.operations-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(2, 4, 5, 0.78);
+}
+
+.operations-modal {
+  width: min(660px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  border: 1px solid var(--wm-border);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--wm-surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.operations-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.operations-modal-header h3 {
+  margin: 0;
+  color: var(--wm-text);
+}
+
+.operations-form {
+  display: grid;
+  gap: 12px;
+}
+
+.operations-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.operations-form textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+}
+
+@media (max-width: 1100px) {
+  .operations-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .operations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .operations-toolbar,
+  .operations-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operations-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-detail dt {
+    padding-bottom: 2px;
+    border-bottom: 0;
+  }
+
+  .operations-modal {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 440px) {
+  .operations-actions {
+    grid-template-columns: 1fr;
+  }
+}

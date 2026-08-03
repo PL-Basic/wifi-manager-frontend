@@ -1,0 +1,10 @@
+const item = (label, tone) => Object.freeze({ label, tone })
+export const ORDER_STATUSES = Object.freeze({ PENDING_PAYMENT: item('待支付', 'warning'), PAID: item('已支付', 'info'), FULFILLED: item('已生效', 'success'), CANCELLED: item('已取消', 'neutral'), CLOSED: item('已关闭', 'neutral'), REFUNDING: item('退款中', 'warning'), PARTIALLY_REFUNDED: item('部分退款', 'warning'), REFUNDED: item('已退款', 'neutral') })
+export const PAYMENT_STATUSES = Object.freeze({ CREATED: item('已创建', 'warning'), SUCCEEDED: item('支付成功', 'success'), FAILED: item('支付失败', 'danger'), CLOSED: item('已关闭', 'neutral'), PARTIALLY_REFUNDED: item('部分退款', 'warning'), REFUNDED: item('已退款', 'neutral') })
+export const REFUND_STATUSES = Object.freeze({ REQUESTED: item('待审核', 'warning'), REJECTED: item('已驳回', 'danger'), PROCESSING: item('退款处理中', 'info'), SUCCEEDED: item('退款成功', 'success'), FAILED: item('退款失败', 'danger') })
+export const APPROVAL_STATUSES = Object.freeze({ 0: item('待审批', 'warning'), 1: item('已通过', 'success'), 2: item('已驳回', 'danger') })
+function resolve(map, value) { return map[String(value)] || item(value == null ? '未知' : `未知（${value}）`, 'neutral') }
+export const resolveOrderStatus = (value) => resolve(ORDER_STATUSES, value)
+export const resolvePaymentStatus = (value) => resolve(PAYMENT_STATUSES, value)
+export const resolveRefundStatus = (value) => resolve(REFUND_STATUSES, value)
+export const resolveApprovalStatus = (value) => resolve(APPROVAL_STATUSES, value)
