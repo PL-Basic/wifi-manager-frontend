@@ -61,6 +61,7 @@ export const NAVIGATION_GROUPS = [
             { to: '/app/orders', label: '订单记录', icon: CreditCard },
             { to: '/app/refunds', label: '退款记录', icon: RefreshCcw },
             { to: '/app/account-security', label: '账户安全', icon: KeyRound },
+            { to: '/app/connections', label: '我的连接', icon: Activity },
             { to: '/app/location', label: '我的定位', icon: MapPin }
         ]
     }

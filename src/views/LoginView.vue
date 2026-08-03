@@ -2,8 +2,8 @@
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
-import { login, loginByVerifyCode, sendVerifyCode, startOAuthLogin } from '@/api/auth'
-import { OAUTH_PROVIDERS } from '@/config/oauth'
+import { getOAuthProviders, login, loginByVerifyCode, sendVerifyCode, startOAuthLogin } from '@/api/auth'
+import { mergeOAuthAvailability } from '@/config/oauth'
 import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/session'
 import { getHomePath } from '@/utils/access'
 import { getApiErrorMessage } from '@/utils/apiError'
@@ -26,6 +26,8 @@ const contactLoginType = ref('password')
 const loading = ref(false)
 // 记录当前正在发起授权的 Provider，同时阻止重复点击。
 const oauthLoadingProvider = ref('')
+const oauthProviders = ref(mergeOAuthAvailability([]))
+const oauthProvidersLoading = ref(true)
 const message = ref('')
 const messageType = ref('success')
 const sendingCode = ref(false)
@@ -296,6 +298,7 @@ async function handleOAuthLogin(provider) {
     loading.value
     || sendingCode.value
     || oauthLoadingProvider.value
+    || !provider.configured
   ) {
     return
   }
@@ -348,6 +351,20 @@ async function handleOAuthLogin(provider) {
   }
 }
 
+async function loadOAuthProviders() {
+  oauthProvidersLoading.value = true
+  try {
+    const { data } = await getOAuthProviders()
+    oauthProviders.value = data?.code === 200
+      ? mergeOAuthAvailability(data.data)
+      : mergeOAuthAvailability([])
+  } catch {
+    oauthProviders.value = mergeOAuthAvailability([])
+  } finally {
+    oauthProvidersLoading.value = false
+  }
+}
+
 function startCodeCooldown(seconds = 60){
   codeCooldown.value = seconds
   
@@ -367,13 +384,17 @@ function startCodeCooldown(seconds = 60){
 
 onMounted(() => {
   if (redirectIfLoggedIn()) return
+  loadOAuthProviders()
   stopSessionSync = onSessionChange(() => {
     redirectIfLoggedIn()
   })
   const authMessage = sessionStorage.getItem('authMessage')
   if (authMessage) {
-    showError(authMessage)
+    const authMessageType = sessionStorage.getItem('authMessageType')
+    if (authMessageType === 'success') showSuccess(authMessage)
+    else showError(authMessage)
     sessionStorage.removeItem('authMessage')
+    sessionStorage.removeItem('authMessageType')
   }
 })
 
@@ -497,21 +518,14 @@ onBeforeUnmount(() => {
           >
             {{ loading ? '登录中...' : '登录' }}
           </button>
-          <div class="password-recovery">
-            <router-link
-              class="auth-inline-link"
-              to="/forgot-password">
-              忘记密码？
-            </router-link>
-          </div>
         </form>
 
         <div class="oauth-login">
-          <p class="oauth-login__label">使用社交账号登录</p>
+          <p class="oauth-login__label">其他登录方式</p>
 
           <div class="oauth-login__actions">
             <button
-              v-for="provider in OAUTH_PROVIDERS"
+              v-for="provider in oauthProviders"
               :key="provider.code"
               type="button"
               class="oauth-login__button"
@@ -519,27 +533,24 @@ onBeforeUnmount(() => {
                 loading
                 || sendingCode
                 || Boolean(oauthLoadingProvider)
+                || oauthProvidersLoading
+                || !provider.configured
               "
+              :title="provider.configured ? `${provider.label} 登录` : `${provider.label} OAuth 当前未配置`"
+              :aria-label="provider.configured ? `${provider.label} 登录` : `${provider.label} OAuth 当前未配置`"
               @click="handleOAuthLogin(provider)"
             >
-              {{
-                oauthLoadingProvider === provider.code
-                  ? '跳转中...'
-                  : provider.label
-              }}
+              <img :src="provider.logo" alt="" aria-hidden="true" />
+              <span class="sr-only">{{ oauthLoadingProvider === provider.code ? '跳转中' : provider.label }}</span>
             </button>
           </div>
         </div>
 
         <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
-        <div class="auth-switch">
-          <span>
-            没有账号？
-            <router-link to="/register">
-              创建账号
-            </router-link>
-          </span>
-        </div>
+        <nav class="auth-utility-links" aria-label="账号帮助">
+          <router-link class="auth-footer-link" to="/forgot-password">忘记密码</router-link>
+          <router-link class="auth-footer-link" to="/register">没有账号？创建账号</router-link>
+        </nav>
       </section>  
     </main>
   </div>

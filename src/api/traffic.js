@@ -10,3 +10,11 @@ export function getClientSignals(params) {
     return http.get('/admin/client-signals', { params })
 }
 
+export function getMyTraffic(params) {
+    return http.get('/traffic', { params })
+}
+
+export function getMyClientSignals(params) {
+    return http.get('/client-signals', { params })
+}
+

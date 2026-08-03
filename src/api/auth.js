@@ -31,6 +31,10 @@ export function resetPassword(data) {
   return http.post('/auth/reset-password', data)
 }
 
+export function getOAuthProviders() {
+  return http.get('/auth/oauth/providers')
+}
+
 // 获取 Provider 授权地址，页面拿到 authorizationUrl 后再跳转。
 export function startOAuthLogin(provider, returnUri) {
   const normalized = requireOAuthProvider(provider)

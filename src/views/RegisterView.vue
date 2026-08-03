@@ -373,7 +373,7 @@ onBeforeUnmount(() => {
         </form>
 
         <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
-        <p class="auth-switch">已有账号？<router-link to="/login">返回登录</router-link></p>
+        <p class="auth-switch">已有账号？<router-link class="auth-footer-link" to="/login">返回登录</router-link></p>
       </section>
     </main>
   </div>

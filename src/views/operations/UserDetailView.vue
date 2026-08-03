@@ -244,10 +244,10 @@ onMounted(loadAll)
         <StateBlock v-if="loading.purchases && !purchases.length" type="loading" title="正在加载购买记录" />
         <StateBlock v-else-if="!purchases.length" title="暂无购买记录" />
         <table v-else class="operations-table">
-          <thead><tr><th>购买 ID</th><th>订单号</th><th>购买时长</th><th>剩余时长</th><th>实付分</th><th>可退款</th><th>创建时间</th></tr></thead>
+          <thead><tr><th>购买 ID</th><th>购买时长</th><th>剩余时长</th><th>实付分</th><th>可退款</th><th>创建时间</th></tr></thead>
           <tbody>
             <tr v-for="row in purchases" :key="row.purchaseId">
-              <td>{{ row.purchaseId }}</td><td>{{ row.orderNo }}</td><td>{{ formatDuration(row.purchasedSeconds) }}</td>
+              <td>{{ row.purchaseId || row.orderNo }}</td><td>{{ formatDuration(row.purchasedSeconds) }}</td>
               <td>{{ formatDuration(row.remainingSeconds) }}</td><td>{{ row.paidAmountCents }}</td>
               <td>{{ row.refundable === 1 ? '是' : '否' }}</td><td>{{ formatTime(row.createTime) }}</td>
             </tr>

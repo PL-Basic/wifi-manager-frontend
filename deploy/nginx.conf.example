@@ -1,10 +1,15 @@
-# 将 wifi.example.com 和证书路径替换为真实生产配置。
+# 将 wifi.example.com、portal.example.com 和证书路径替换为真实生产配置。
 # 构建后的 dist 内容部署到 /var/www/wifi-manager。
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
 
 server {
     listen 80;
     listen [::]:80;
-    server_name wifi.example.com;
+    server_name wifi.example.com portal.example.com;
 
     return 301 https://$host$request_uri;
 }
@@ -12,7 +17,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name wifi.example.com;
+    server_name wifi.example.com portal.example.com;
 
     ssl_certificate /etc/letsencrypt/live/wifi.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/wifi.example.com/privkey.pem;
@@ -21,14 +26,25 @@ server {
     index index.html;
     client_max_body_size 3m;
 
-    # /api 前缀只属于浏览器入口，转发到 Gateway 时去掉该前缀。
+    # 内部服务接口永远不允许经公网浏览器入口访问。
+    location = /api/internal {
+        return 404;
+    }
+
+    location ^~ /api/internal/ {
+        return 404;
+    }
+
+    # /api 前缀只属于浏览器入口，proxy_pass 末尾的 / 会去掉该前缀。
     location /api/ {
         proxy_pass http://127.0.0.1:8080/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # 必须覆盖客户端伪造的转发头，Gateway 才能安全信任。
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Forwarded "";
 
         # 外部请求不能携带服务间可信身份头。
         proxy_set_header X-Gateway-Token "";
@@ -43,11 +59,14 @@ server {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
+        # monitor-service 需要浏览器真实 Origin 做精确白名单校验。
+        proxy_set_header Origin $http_origin;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Forwarded "";
 
         proxy_set_header X-Gateway-Token "";
         proxy_set_header X-Internal-Token "";

@@ -16,5 +16,5 @@ export const getUserUsageLogs = (userId, params) => http.get(`/admin/users/${pat
 export const adjustUserEntitlement = (userId, data) => http.post(`/admin/users/${path(userId)}/entitlement/adjustments`, data)
 export const createRewardOrder = (userId, data) => http.post(`/admin/users/${path(userId)}/entitlement/reward-orders`, data)
 export const getAdminRefunds = (params) => http.get('/admin/entitlements/refunds', { params })
+export const getAdminRefund = (refundNo) => http.get(`/admin/entitlements/refunds/${path(refundNo)}`)
 export const reviewRefund = (refundNo, data) => http.put(`/admin/entitlements/refunds/${path(refundNo)}/review`, data)
-export const completeDemoRefund = (refundNo, data) => http.post(`/admin/entitlements/refunds/${path(refundNo)}/demo-result`, data)

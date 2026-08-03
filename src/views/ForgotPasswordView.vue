@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
         </p>
 
         <p class="auth-switch">
-          <router-link to="/login">
+          <router-link class="auth-footer-link" to="/login">
             {{ resetSucceeded ? '返回登录' : '想起密码了？返回登录' }}
           </router-link>
         </p>

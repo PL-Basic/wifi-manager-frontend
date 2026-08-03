@@ -35,7 +35,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 36px;
+  border: 1px solid var(--wm-border-strong);
+  border-radius: 6px;
+  padding: 7px 10px;
   color: var(--wm-text-soft);
+  background: var(--wm-surface-muted);
+  box-shadow: none;
+}
+
+.portal-account:hover:not(:disabled) {
+  border-color: var(--wm-primary);
+  color: var(--wm-text);
+  background: var(--wm-surface-raised);
 }
 
 .portal-panel {

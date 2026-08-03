@@ -78,9 +78,10 @@ export function syncSessionUser(user = {}, emit = true) {
   if (emit) emitAuthEvent('sync')
 }
 
-export function clearSession(reason = '登录状态已过期，请重新登录', emit = true) {
+export function clearSession(reason = '登录状态已过期，请重新登录', emit = true, messageType = 'error') {
   AUTH_KEYS.forEach((key) => localStorage.removeItem(key))
   sessionStorage.setItem('authMessage', reason)
+  sessionStorage.setItem('authMessageType', messageType)
 
   if (emit) emitAuthEvent('logout')
 }

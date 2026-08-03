@@ -106,7 +106,7 @@ function loadAll() {
 }
 
 function requestRefund(purchaseId) {
-  router.push({ path: '/app/refunds', query: { purchaseId } })
+  router.push({ path: '/app/refunds', query: { purchaseId: String(purchaseId || '') } })
 }
 
 onMounted(loadAll)
@@ -147,10 +147,10 @@ onMounted(loadAll)
       <StateBlock v-if="loading.purchases && !purchases.length" type="loading" title="正在加载购买记录" />
       <StateBlock v-else-if="!purchases.length" title="暂无购买记录" />
       <table v-else class="operations-table">
-        <thead><tr><th>购买 ID</th><th>订单号</th><th>购买时长</th><th>剩余时长</th><th>实付</th><th>退款状态</th><th>时间</th><th>操作</th></tr></thead>
+        <thead><tr><th>购买 ID</th><th>购买时长</th><th>剩余时长</th><th>实付</th><th>退款状态</th><th>时间</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="row in purchases" :key="row.purchaseId">
-            <td>{{ row.purchaseId }}</td><td>{{ row.orderNo }}</td><td>{{ duration(row.purchasedSeconds) }}</td>
+            <td>{{ row.purchaseId || row.orderNo }}</td><td>{{ duration(row.purchasedSeconds) }}</td>
             <td>{{ duration(row.remainingSeconds) }}</td><td>{{ money(row.paidAmountCents) }}</td>
             <td>{{ row.refundable === 1 ? '可申请退款' : '不可退款' }}</td><td>{{ time(row.createTime) }}</td>
             <td><button v-if="row.refundable === 1" class="secondary-button compact-button" type="button" @click="requestRefund(row.purchaseId)">申请退款</button></td>

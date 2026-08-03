@@ -86,10 +86,10 @@ function requestIdFor(purchaseId, reason) {
 }
 
 async function apply() {
-  const purchaseId = Number(form.purchaseId)
+  const purchaseId = form.purchaseId.trim()
   const reason = form.reason.trim()
 
-  if (!Number.isSafeInteger(purchaseId) || purchaseId <= 0 || !reason) {
+  if (!purchaseId || purchaseId.length > 64 || !reason) {
     error.value = '购买 ID 和退款原因不能为空'
     return
   }
@@ -156,7 +156,7 @@ onMounted(() => load(1))
       <div class="operations-form-row">
         <label>
           <span>购买 ID</span>
-          <input v-model="form.purchaseId" type="number" min="1" required />
+          <input v-model="form.purchaseId" type="text" maxlength="64" autocomplete="off" required />
         </label>
         <label>
           <span>退款原因</span>
@@ -189,7 +189,6 @@ onMounted(() => load(1))
         <thead>
           <tr>
             <th>退款号</th>
-            <th>订单号</th>
             <th>购买 ID</th>
             <th>状态</th>
             <th>申请金额</th>
@@ -202,8 +201,7 @@ onMounted(() => load(1))
         <tbody>
           <tr v-for="row in rows" :key="row.refundNo">
             <td>{{ row.refundNo }}</td>
-            <td>{{ row.orderNo }}</td>
-            <td>{{ row.purchaseId }}</td>
+            <td>{{ row.purchaseId || row.orderNo }}</td>
             <td>
               <span :class="['status-pill', 'status-pill--' + resolveRefundStatus(row.status).tone]">
                 {{ resolveRefundStatus(row.status).label }}

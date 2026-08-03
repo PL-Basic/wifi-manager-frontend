@@ -4,9 +4,9 @@ import { Eye } from 'lucide-vue-next'
 import StateBlock from '@/components/StateBlock.vue'
 import AppPagination from '@/components/app/AppPagination.vue'
 import AppDrawer from '@/components/app/AppDrawer.vue'
-import { completeDemoRefund, getAdminRefunds, reviewRefund } from '@/api/operations'
+import { getAdminRefund, getAdminRefunds, reviewRefund } from '@/api/operations'
 import { getApiErrorMessage } from '@/utils/apiError'
-import { confirmAction, requestActionDialog } from '@/composables/useActionDialog'
+import { requestActionDialog } from '@/composables/useActionDialog'
 import { useRequestGate } from '@/composables/useRequestGate'
 import { REFUND_STATUSES, resolveRefundStatus } from '@/config/operationStatus'
 import { formatDateTime, formatDuration, formatMoney } from '@/utils/billing'
@@ -20,16 +20,13 @@ const message = ref('')
 const rows = ref([])
 const busyKey = ref('')
 const selectedRefund = ref(null)
+const detailLoading = ref(false)
+const detailError = ref('')
 const filters = reactive({ userId: '', status: '' })
 const applied = reactive({ userId: '', status: '' })
 const pager = reactive({ current: 1, size: 10, total: 0 })
 const requestGate = useRequestGate()
 
-
-// 同一退款只有一个 Demo 终态，固定 requestId 可以安全重试超时请求。
-function demoRequestId(refundNo) {
-  return `RFD-${refundNo}`.slice(0, 56)
-}
 
 function unwrap(response, fallback) {
   if (response.data?.code !== 200) throw new Error(response.data?.message || fallback)
@@ -103,47 +100,26 @@ async function review(row, decision) {
   }
 }
 
-async function submitDemoResult(row, success) {
-  let failureMessage = null
-  if (!success) {
-    const result = await requestActionDialog({
-      title: '提交 Demo 退款失败结果',
-      message: `退款 ${row.refundNo} 将标记为执行失败。`,
-      confirmLabel: '提交失败结果',
-      inputLabel: '失败原因',
-      inputPlaceholder: '说明退款执行失败原因',
-      inputRequired: true,
-      tone: 'danger'
-    })
-    if (!result.confirmed) return
-    failureMessage = result.value
-  } else if (!await confirmAction({
-    title: '提交 Demo 退款成功结果',
-    message: `退款 ${row.refundNo} 将标记为执行成功。`,
-    confirmLabel: '提交成功结果'
-  })) {
-    return
-  }
+async function openRefund(row) {
+  selectedRefund.value = row
+  detailLoading.value = true
+  detailError.value = ''
 
-  busyKey.value = `result:${row.refundNo}`
-  error.value = ''
-  message.value = ''
   try {
-    const updated = unwrap(await completeDemoRefund(row.refundNo, {
-      requestId: demoRequestId(row.refundNo),
-      success,
-      failureMessage
-    }), 'Demo 退款结果提交失败')
-    if (selectedRefund.value?.refundNo === row.refundNo) selectedRefund.value = updated
-    message.value = 'Demo 退款结果已提交'
-    await load()
+    selectedRefund.value = unwrap(await getAdminRefund(row.refundNo), '退款详情加载失败')
   } catch (cause) {
-    error.value = cause instanceof Error && !cause.response
+    detailError.value = cause instanceof Error && !cause.response
       ? cause.message
-      : getApiErrorMessage(cause, 'Demo 退款结果提交失败')
+      : getApiErrorMessage(cause, '退款详情加载失败')
   } finally {
-    busyKey.value = ''
+    detailLoading.value = false
   }
+}
+
+function closeRefund() {
+  if (busyKey.value) return
+  selectedRefund.value = null
+  detailError.value = ''
 }
 
 onMounted(() => load(1))
@@ -169,22 +145,21 @@ onMounted(() => load(1))
           <col style="width: 250px" /><col style="width: 90px" /><col style="width: 250px" /><col style="width: 120px" />
           <col style="width: 120px" /><col style="width: 260px" /><col style="width: 120px" /><col style="width: 250px" />
         </colgroup>
-        <thead><tr><th>退款号</th><th>用户</th><th>订单</th><th>状态</th><th>申请金额</th><th>原因</th><th>审核人</th><th>操作</th></tr></thead>
+        <thead><tr><th>退款号</th><th>用户</th><th>购买 ID</th><th>状态</th><th>申请金额</th><th>原因</th><th>审核人</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="row in rows" :key="row.refundNo">
-            <td :title="row.refundNo">{{ row.refundNo }}</td><td :title="String(row.userId)">{{ row.userId }}</td><td :title="row.orderNo">{{ row.orderNo }}</td>
+            <td :title="row.refundNo">{{ row.refundNo }}</td><td :title="String(row.userId)">{{ row.userId }}</td><td :title="row.purchaseId || row.orderNo">{{ row.purchaseId || row.orderNo }}</td>
             <td><span :class="['status-pill', `status-pill--${resolveRefundStatus(row.status).tone}`]">{{ resolveRefundStatus(row.status).label }}</span></td>
             <td>{{ formatMoney(row.requestedAmountCents) }}</td><td class="refund-reason-cell" :title="row.reason">{{ row.reason }}</td><td :title="row.reviewerName || '-'">{{ row.reviewerName || '-' }}</td>
             <td class="refund-action-cell">
               <div class="operations-actions refund-row-actions">
-                <button class="icon-button" type="button" title="查看退款详情" aria-label="查看退款详情" @click="selectedRefund = row"><Eye :size="16" /></button>
+                <button class="icon-button" type="button" title="查看退款详情" aria-label="查看退款详情" @click="openRefund(row)"><Eye :size="16" /></button>
                 <template v-if="row.status === 'REQUESTED'">
                   <button class="secondary-button compact-button" type="button" :disabled="!!busyKey" @click="review(row, 'APPROVE')">通过</button>
                   <button class="danger-button compact-button" type="button" :disabled="!!busyKey" @click="review(row, 'REJECT')">驳回</button>
                 </template>
                 <template v-if="row.status === 'PROCESSING'">
-                  <button class="secondary-button compact-button" type="button" :disabled="!!busyKey" @click="submitDemoResult(row, true)">Demo 成功</button>
-                  <button class="danger-button compact-button" type="button" :disabled="!!busyKey" @click="submitDemoResult(row, false)">Demo 失败</button>
+                  <button class="secondary-button compact-button" type="button" disabled title="真实支付退款尚未接入">当前服务未提供</button>
                 </template>
               </div>
             </td>
@@ -201,16 +176,18 @@ onMounted(() => load(1))
       kicker="退款审核"
       width="720px"
       :close-disabled="!!busyKey"
-      @close="selectedRefund = null"
+      @close="closeRefund"
     >
       <template v-if="selectedRefund">
+        <StateBlock v-if="detailLoading" type="loading" title="正在加载退款详情" />
+        <p v-else-if="detailError" class="alert error">{{ detailError }}</p>
+        <template v-else>
         <section class="refund-detail-section">
           <h4>申请信息</h4>
           <dl class="operations-detail">
             <dt>退款单号</dt><dd>{{ selectedRefund.refundNo }}</dd>
-            <dt>订单号</dt><dd>{{ selectedRefund.orderNo }}</dd>
+            <dt>购买 ID</dt><dd>{{ selectedRefund.purchaseId || selectedRefund.orderNo }}</dd>
             <dt>支付单号</dt><dd>{{ selectedRefund.paymentNo || '-' }}</dd>
-            <dt>购买 ID</dt><dd>{{ selectedRefund.purchaseId }}</dd>
             <dt>用户 ID</dt><dd>{{ selectedRefund.userId }}</dd>
             <dt>申请状态</dt><dd><span :class="['status-pill', `status-pill--${resolveRefundStatus(selectedRefund.status).tone}`]">{{ resolveRefundStatus(selectedRefund.status).label }}</span></dd>
             <dt>申请金额</dt><dd>{{ formatMoney(selectedRefund.requestedAmountCents) }}</dd>
@@ -241,10 +218,10 @@ onMounted(() => load(1))
             <button class="danger-button" type="button" :disabled="!!busyKey" @click="review(selectedRefund, 'REJECT')">驳回退款</button>
           </template>
           <template v-if="selectedRefund.status === 'PROCESSING'">
-            <button type="button" :disabled="!!busyKey" @click="submitDemoResult(selectedRefund, true)">Demo 成功</button>
-            <button class="danger-button" type="button" :disabled="!!busyKey" @click="submitDemoResult(selectedRefund, false)">Demo 失败</button>
+            <button type="button" disabled title="真实支付退款尚未接入">当前服务未提供</button>
           </template>
         </div>
+        </template>
       </template>
     </AppDrawer>
   </section>

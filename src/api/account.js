@@ -25,3 +25,7 @@ export function unbindSocialIdentity(userId, identityId) {
         `/users/${userId}/social-identities/${identityId}`
     )
 }
+
+export function requestMyAccountPurge(userId, data) {
+    return http.post(`/users/${userId}/purge-requests`, data)
+}

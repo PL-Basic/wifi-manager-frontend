@@ -7,7 +7,12 @@ import { authorizePortal, getPortalStatus } from '@/api/sessions'
 import { getApiErrorInfo } from '@/utils/apiError'
 import { resolveCommandStatus, resolveSessionStatus } from '@/config/networkStatus'
 import { formatDateTime, formatDuration } from '@/utils/billing'
-import { getStoredDisplayName, getToken, onSessionChange } from '@/utils/session'
+import { clearSession, getStoredDisplayName, getToken, onSessionChange } from '@/utils/session'
+import {
+  forgetActivePortalSession,
+  rememberActivePortalSession,
+  revokeActivePortalSession
+} from '@/utils/portalSession'
 import './operations/operations.css'
 import './billing.css'
 import './portal.css'
@@ -30,6 +35,8 @@ const message = ref('')
 const pollCount = ref(0)
 let pollTimer = null
 let stopSessionSync = null
+let activeToken = ''
+const switchingAccount = ref(false)
 
 const contextValid = computed(() => (
   Boolean(form.deviceCode)
@@ -87,13 +94,14 @@ function replaceSessionQuery(sessionId) {
 
 function schedulePoll(delay = 1800) {
   stopPolling()
-  if (!status.value?.sessionId || authorized.value || failed.value || pollCount.value >= 40) return
+  if (!status.value?.sessionId || failed.value) return
+  if (!authorized.value && pollCount.value >= 40) return
   polling.value = true
-  pollTimer = setTimeout(() => pollStatus(status.value.sessionId), delay)
+  pollTimer = setTimeout(() => pollStatus(status.value.sessionId), authorized.value ? 10000 : delay)
 }
 
 async function pollStatus(sessionId) {
-  if (!sessionId || authorized.value || failed.value) return
+  if (!sessionId || failed.value) return
   polling.value = true
 
   try {
@@ -104,9 +112,12 @@ async function pollStatus(sessionId) {
     errorType.value = ''
 
     if (authorized.value) {
+      rememberActivePortalSession(data.sessionId)
       message.value = data.statusMessage || '网络认证成功'
-      stopPolling()
+      // 认证成功后继续低频刷新，页面才能显示租约消费和最终断开状态。
+      schedulePoll(10000)
     } else if (failed.value) {
+      forgetActivePortalSession(data.sessionId)
       error.value = data.commandResultMessage || data.statusMessage || data.endReason || '设备未能完成授权'
       stopPolling()
     } else {
@@ -117,6 +128,36 @@ async function pollStatus(sessionId) {
     error.value = info.message
     errorType.value = info.type
     stopPolling()
+  }
+}
+
+function portalQueryWithoutSession() {
+  const query = { ...route.query }
+  delete query.sessionId
+  return query
+}
+
+async function switchAccount() {
+  if (switchingAccount.value) return
+  const redirect = router.resolve({
+    name: 'portal-authorize',
+    query: portalQueryWithoutSession()
+  }).fullPath
+
+  switchingAccount.value = true
+  error.value = ''
+
+  try {
+    await revokeActivePortalSession(status.value?.sessionId)
+    stopPolling()
+    status.value = null
+    clearSession('当前 Portal 账号已退出，请登录要接入网络的账号', true, 'success')
+    await router.replace({ name: 'login', query: { redirect } })
+  } catch (cause) {
+    const info = getApiErrorInfo(cause, '当前设备的网络认证结束失败，请重试')
+    error.value = info.message
+    errorType.value = info.type
+    switchingAccount.value = false
   }
 }
 
@@ -140,8 +181,10 @@ async function submit() {
     replaceSessionQuery(data.sessionId)
 
     if (authorized.value) {
+      rememberActivePortalSession(data.sessionId)
       message.value = data.statusMessage || '网络认证成功'
     } else if (failed.value) {
+      forgetActivePortalSession(data.sessionId)
       error.value = data.commandResultMessage || data.statusMessage || '设备未能完成授权'
     } else {
       message.value = data.statusMessage || '认证请求已受理，正在等待设备确认'
@@ -166,12 +209,25 @@ function continueBrowsing() {
 }
 
 onMounted(() => {
+  activeToken = getToken()
   stopSessionSync = onSessionChange(() => {
-    if (!getToken()) router.replace({ path: '/login', query: { redirect: route.fullPath } })
+    if (switchingAccount.value) return
+    const currentToken = getToken()
+    if (!currentToken) {
+      router.replace({ path: '/login', query: { redirect: router.resolve({ name: 'portal-authorize', query: portalQueryWithoutSession() }).fullPath } })
+      return
+    }
+    if (currentToken !== activeToken) {
+      activeToken = currentToken
+      stopPolling()
+      status.value = null
+      message.value = '登录账号已切换，请重新开始认证'
+      router.replace({ name: 'portal-authorize', query: portalQueryWithoutSession() })
+    }
   })
 
-  const existingSessionId = Number(route.query.sessionId)
-  if (Number.isSafeInteger(existingSessionId) && existingSessionId > 0) {
+  const existingSessionId = String(route.query.sessionId || '').trim()
+  if (/^\d+$/.test(existingSessionId) && existingSessionId !== '0') {
     status.value = { sessionId: existingSessionId }
     pollStatus(existingSessionId)
   } else if (!contextValid.value) {
@@ -192,7 +248,9 @@ onBeforeUnmount(() => {
     <main class="portal-shell">
       <header class="portal-brand">
         <div><p class="page-kicker">Wifi Manager Portal</p><h1>{{ status?.hotspotName || 'WiFi 网络认证' }}</h1></div>
-        <span class="portal-account"><LogIn :size="16" />{{ getStoredDisplayName() }}</span>
+        <button class="portal-account" type="button" title="结束当前网络认证并切换账号" aria-label="结束当前网络认证并切换账号" :disabled="switchingAccount" @click="switchAccount">
+          <LogIn :size="16" />{{ getStoredDisplayName() }}
+        </button>
       </header>
 
       <section class="glass-panel portal-panel">

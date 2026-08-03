@@ -19,7 +19,8 @@ defineProps({
   connectionState: { type: String, default: 'idle' },
   reconnectAttempt: { type: Number, default: 0 },
   apiStatus: { type: String, default: 'unknown' },
-  apiMessage: { type: String, default: '' }
+  apiMessage: { type: String, default: '' },
+  logoutBusy: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -67,6 +68,7 @@ const emit = defineEmits([
         type="button"
         title="退出登录"
         aria-label="退出登录"
+        :disabled="logoutBusy"
         @click="emit('logout')"
       >
         <LogOut :size="19" />

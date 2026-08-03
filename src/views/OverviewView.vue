@@ -87,6 +87,22 @@ const metricItems = computed(() => [
   {
     label: '节点在线率',
     value: onlineRate.value
+  },
+  {
+    label: '24 小时流量',
+    value: formatBytes(dashboard.value?.trafficSummary?.totalBytes)
+  },
+  {
+    label: '未处理告警',
+    value: dashboard.value?.unhandledAlertCount ?? '-'
+  },
+  {
+    label: '启用规则',
+    value: dashboard.value?.enabledRuleCount ?? '-'
+  },
+  {
+    label: '定位记录',
+    value: dashboard.value?.locationCount ?? '-'
   }
 ])
 
@@ -112,6 +128,15 @@ const serviceItems = computed(() => [
 function formatTime(value) {
   if (!value) return '-'
   return String(value).replace('T', ' ')
+}
+
+function formatBytes(value) {
+  const bytes = Number(value)
+  if (!Number.isFinite(bytes) || bytes < 0) return '-'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`
 }
 
 function serviceStatus(value) {

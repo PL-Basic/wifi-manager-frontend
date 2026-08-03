@@ -4,10 +4,11 @@
 
 正式环境不运行 Vite 开发服务器。执行构建后，只部署 `dist` 静态文件。
 
-对公网只开放一个 HTTPS 域名，例如：
+对公网只开放同一套 Nginx 的 HTTPS 域名，例如主站和 Portal：
 
 ```text
 https://wifi.example.com
+https://portal.example.com/portal
 ```
 
 浏览器访问链路：
@@ -69,7 +70,8 @@ npm.cmd run build
 2. 配置有效的 TLS 证书和私钥。
 3. 确认 Gateway 只在 Nginx 可访问的可信网络监听 `8080`。
 4. 若 Gateway 不在本机，将示例中的 `127.0.0.1:8080` 改成内部服务地址。
-5. 保留 `/ws/` 的 Upgrade、Connection 和长超时配置。
+5. 保留 `/ws/` 的 Upgrade、动态 Connection、真实 Origin 和长超时配置。
+6. 保留 `/api/internal/` 的 404 边界；内部接口不允许经过浏览器入口。
 
 前端 API 使用相对路径 `/api`，WebSocket 使用当前页面的同源 `/ws/alerts`。因此 HTTPS 页面会自动使用 `wss://wifi.example.com/ws/alerts`，不需要在构建产物中硬编码服务器地址。
 
@@ -79,7 +81,8 @@ Gateway 和 monitor-service 使用同一组真实前端 Origin：
 
 ```text
 WIFI_ALLOWED_ORIGIN=https://wifi.example.com
-WIFI_ALLOWED_ORIGIN_ALT=https://www.wifi.example.com
+WIFI_ALLOWED_ORIGIN_ALT=https://portal.example.com
+WIFI_ALLOWED_ORIGINS=https://wifi.example.com,https://portal.example.com
 ```
 
 若只使用一个域名，备用值也应设置为受控的真实域名，不能使用 `*`。生产环境不要填写 `localhost`、局域网 IP 或 `portal.test`。
@@ -87,19 +90,19 @@ WIFI_ALLOWED_ORIGIN_ALT=https://www.wifi.example.com
 反向代理会设置真实客户端转发头时，再按后端部署文档评估：
 
 ```text
-FORWARD_HEADERS_STRATEGY=framework
+FORWARD_HEADERS_STRATEGY=none
 WIFI_TRUST_PROXY_HEADERS=true
 ```
 
-启用前必须确保代理覆盖外部传入的 `X-Forwarded-*`，并清除 `X-Gateway-Token`、`X-Internal-Token` 和 `X-User-*` 等可信头。
+这里由 Gateway 自己读取 Nginx 覆盖后的 `X-Forwarded-For`/`X-Real-IP`，因此保持 Spring 的 `FORWARD_HEADERS_STRATEGY=none`。启用前必须确保代理覆盖外部传入的转发头，并清除 `X-Gateway-Token`、`X-Internal-Token` 和 `X-User-*` 等可信头。
 
 ## 5. 配置 ESP32 Portal
 
 正式固件必须使用手机能够访问的 HTTPS 域名：
 
 ```cpp
-#define PORTAL_EXTERNAL_URL "https://wifi.example.com/portal"
-#define PORTAL_EXTERNAL_DOMAIN "wifi.example.com"
+#define PORTAL_EXTERNAL_URL "https://portal.example.com/portal"
+#define PORTAL_EXTERNAL_DOMAIN "portal.example.com"
 #define PORTAL_SERVER_IPV4 "203.0.113.10"
 ```
 

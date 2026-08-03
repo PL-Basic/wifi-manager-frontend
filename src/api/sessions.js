@@ -14,6 +14,10 @@ export function getMySessions(params) {
     return http.get('/sessions', { params })
 }
 
+export function logoutMySession(sessionId) {
+    return http.post(`/sessions/${encodePath(sessionId)}/logout`)
+}
+
 export function revokeSession(sessionId) {
     return http.post(
         `/admin/sessions/${encodePath(sessionId)}/revoke`

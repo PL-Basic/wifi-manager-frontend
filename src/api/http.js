@@ -3,8 +3,7 @@ import { API_BASE_URL } from '@/config/runtime'
 import {
   clearSession,
   getToken,
-  isTokenExpired,
-  parseTokenPayload
+  isTokenExpired
 } from '@/utils/session'
 import { reportApiConnectivity } from '@/utils/connectivity'
 
@@ -22,7 +21,8 @@ function isPublicAuthRequest(config) {
     '/auth/register',
     '/auth/codes',
     '/auth/code-login',
-    '/auth/reset-password'
+    '/auth/reset-password',
+    '/auth/oauth/providers'
   ]
 
   if (publicAuthPaths.includes(path)) return true
@@ -136,13 +136,10 @@ http.interceptors.response.use(
 
 export default http
 
-// 页面从手机后台恢复时主动发起一次轻量鉴权请求，修正休眠前遗留的网络状态。
+// 独立探测 Gateway，避免下游服务故障污染入口可达性判断。
 export async function probeApiConnectivity() {
-  const userId = parseTokenPayload()?.sub
-  if (!getToken() || !userId) return false
-
   try {
-    await http.get(`/users/${encodeURIComponent(String(userId))}`, {
+    await http.get('/health/gateway', {
       timeout: 7000,
       wifiConnectivityProbe: true
     })

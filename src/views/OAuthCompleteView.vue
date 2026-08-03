@@ -195,7 +195,7 @@ onMounted(handleCallback)
           </p>
 
           <p class="auth-switch">
-            <router-link :to="actionPath">
+            <router-link class="auth-footer-link" :to="actionPath">
               {{ actionLabel }}
             </router-link>
           </p>

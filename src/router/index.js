@@ -3,6 +3,7 @@ import AppShell from '@/layouts/AppShell.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
+import ChangePasswordView from '@/views/ChangePasswordView.vue'
 import PortalAuthorizeView from '@/views/PortalAuthorizeView.vue'
 import OverviewView from '@/views/OverviewView.vue'
 import ProfileView from '@/views/ProfileView.vue'
@@ -10,6 +11,7 @@ import DevicesView from '@/views/network/DevicesView.vue'
 import DeviceDetailView from '@/views/network/DeviceDetailView.vue'
 import ClientsView from '@/views/network/ClientsView.vue'
 import MyLocationView from '@/views/MyLocationView.vue'
+import MyConnectionsView from '@/views/MyConnectionsView.vue'
 import OAuthCompleteView from '@/views/OAuthCompleteView.vue'
 import AccountSecurityView from '@/views/AccountSecurityView.vue'
 import SessionsView from '@/views/network/SessionsView.vue'
@@ -121,6 +123,24 @@ const routes = [
         meta: {
           title: '账户安全',
           breadcrumbs: ['个人', '账户安全']
+        }
+      },
+      {
+        path: 'connections',
+        name: 'app-connections',
+        component: MyConnectionsView,
+        meta: {
+          title: '我的连接',
+          breadcrumbs: ['个人', '我的连接']
+        }
+      },
+      {
+        path: 'change-password',
+        name: 'app-change-password',
+        component: ChangePasswordView,
+        meta: {
+          title: '修改密码',
+          breadcrumbs: ['个人', '账户安全', '修改密码']
         }
       },
       {

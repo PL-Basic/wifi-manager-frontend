@@ -1,18 +1,21 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { X } from 'lucide-vue-next'
+import { KeyRound, X } from 'lucide-vue-next'
 import StateBlock from '@/components/StateBlock.vue'
 import {
   getSocialIdentities,
+  requestMyAccountPurge,
   unbindSocialIdentity
 } from '@/api/account'
-import { startOAuthBind } from '@/api/auth'
+import { getOAuthProviders, startOAuthBind } from '@/api/auth'
 import {
   getOAuthProvider,
-  OAUTH_PROVIDERS
+  mergeOAuthAvailability
 } from '@/config/oauth'
 import { getApiErrorMessage } from '@/utils/apiError'
-import { getToken, parseTokenPayload } from '@/utils/session'
+import { getStoredRole, getToken, parseTokenPayload } from '@/utils/session'
+import { ROLE_SUPER_ADMIN, normalizeRole } from '@/utils/access'
+import { requestActionDialog } from '@/composables/useActionDialog'
 
 const identities = ref([])
 const loading = ref(false)
@@ -20,18 +23,22 @@ const loadError = ref('')
 const message = ref('')
 const messageType = ref('success')
 const bindLoadingProvider = ref('')
+const oauthProviders = ref(mergeOAuthAvailability([]))
 const unbindTarget = ref(null)
 const unbinding = ref(false)
 const modalMessage = ref('')
+const purgeSubmitting = ref(false)
 
 let viewActive = true
 
 const userId = computed(() => parseTokenPayload()?.sub || '')
+const canRequestPurge = computed(() => normalizeRole(getStoredRole()) !== ROLE_SUPER_ADMIN)
 
 const busy = computed(() => (
   loading.value
   || Boolean(bindLoadingProvider.value)
   || unbinding.value
+  || purgeSubmitting.value
 ))
 
 const boundProviders = computed(() => new Set(
@@ -93,11 +100,23 @@ async function loadIdentities() {
   }
 }
 
+async function loadOAuthProviders() {
+  try {
+    const { data } = await getOAuthProviders()
+    oauthProviders.value = data?.code === 200
+      ? mergeOAuthAvailability(data.data)
+      : mergeOAuthAvailability([])
+  } catch {
+    oauthProviders.value = mergeOAuthAvailability([])
+  }
+}
+
 async function startBinding(provider) {
   if (
     busy.value
     || loadError.value
     || isProviderBound(provider.code)
+    || !provider.configured
   ) {
     return
   }
@@ -215,7 +234,37 @@ async function confirmUnbind() {
   }
 }
 
-onMounted(loadIdentities)
+async function requestAccountPurge() {
+  if (busy.value || !userId.value) return
+  const result = await requestActionDialog({
+    title: '申请彻底删除账号',
+    message: '该申请将进入高风险审批。通过后账号及关联数据会被物理删除，无法恢复。',
+    confirmLabel: '提交删除申请',
+    inputLabel: '申请原因',
+    inputPlaceholder: '请说明删除原因',
+    inputRequired: true,
+    tone: 'danger'
+  })
+  if (!result.confirmed) return
+
+  purgeSubmitting.value = true
+  try {
+    const { data } = await requestMyAccountPurge(userId.value, { reason: result.value })
+    if (data?.code !== 200) throw new Error(data?.message || '删除申请提交失败')
+    showMessage(data.message || '账号删除申请已提交', 'success')
+  } catch (error) {
+    showMessage(error instanceof Error && !error.response
+      ? error.message
+      : getApiErrorMessage(error, '删除申请提交失败'))
+  } finally {
+    purgeSubmitting.value = false
+  }
+}
+
+onMounted(() => {
+  loadIdentities()
+  loadOAuthProviders()
+})
 
 onBeforeUnmount(() => {
   viewActive = false
@@ -248,15 +297,21 @@ onBeforeUnmount(() => {
     </p>
 
     <section class="role-action-grid">
+      <article class="role-action-card glass-panel">
+        <span>密码凭证</span>
+        <strong>登录密码</strong>
+        <p>通过当前账号已绑定的手机号或邮箱验证身份并修改密码。</p>
+        <RouterLink class="danger-button password-management-link" to="/app/change-password"><KeyRound :size="16" />修改密码</RouterLink>
+      </article>
       <article
-        v-for="provider in OAUTH_PROVIDERS"
+        v-for="provider in oauthProviders"
         :key="provider.code"
         class="role-action-card glass-panel"
       >
         <span>
           {{ isProviderBound(provider.code) ? '已绑定' : '未绑定' }}
         </span>
-        <strong>{{ provider.label }}</strong>
+        <strong class="oauth-provider-name"><img :src="provider.logo" alt="" aria-hidden="true" />{{ provider.label }}</strong>
         <p>绑定后可以使用该社交身份登录当前账号。</p>
 
         <button
@@ -266,7 +321,9 @@ onBeforeUnmount(() => {
             busy
             || Boolean(loadError)
             || isProviderBound(provider.code)
+            || !provider.configured
           "
+          :title="provider.configured ? `绑定 ${provider.label}` : `${provider.label} OAuth 当前未配置`"
           @click="startBinding(provider)"
         >
           {{
@@ -274,10 +331,17 @@ onBeforeUnmount(() => {
               ? '已经绑定'
               : bindLoadingProvider === provider.code
                 ? '跳转中...'
-                : `绑定 ${provider.label}`
+                : provider.configured
+                  ? `绑定 ${provider.label}`
+                  : '当前未配置'
           }}
         </button>
       </article>
+    </section>
+
+    <section v-if="canRequestPurge" class="glass-panel account-danger-zone">
+      <div><p class="page-kicker">高风险操作</p><h3>彻底删除账号</h3><p>提交后需由超级管理员审批，申请期间账号仍可正常使用。</p></div>
+      <button class="danger-button" type="button" :disabled="busy" @click="requestAccountPurge">{{ purgeSubmitting ? '提交中...' : '申请删除' }}</button>
     </section>
 
     <section class="table-panel glass-panel">

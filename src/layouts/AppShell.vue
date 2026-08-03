@@ -8,6 +8,8 @@ import GlobalToast from '@/components/app/GlobalToast.vue'
 import ActionConfirmDialog from '@/components/app/ActionConfirmDialog.vue'
 import { useAlertSocket } from '@/composables/useAlertSocket'
 import { useApiConnectivity } from '@/composables/useApiConnectivity'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { revokeActivePortalSession } from '@/utils/portalSession'
 import {
   ROLE_ADMIN,
   ROLE_SUPER_ADMIN,
@@ -31,6 +33,8 @@ const role = ref(normalizeRole(getStoredRole()))
 const displayName = ref(getStoredDisplayName())
 // 其他标签页切换账号后，递增版本号以重新创建当前业务页面。
 const sessionRevision = ref(0)
+const logoutPending = ref(false)
+const logoutError = ref('')
 const {
   state: apiConnectivity,
   probe: retryApiConnectivity
@@ -54,11 +58,25 @@ const roleLabel = computed(() => {
   return '普通用户'
 })
 
-function logout() {
-  disconnectAlertSocket()
-  activeToken = ''
-  clearSession('')
-  router.push('/login')
+async function logout() {
+  if (logoutPending.value) return
+  logoutPending.value = true
+  logoutError.value = ''
+
+  try {
+    await revokeActivePortalSession()
+    disconnectAlertSocket()
+    activeToken = ''
+    clearSession('')
+    await router.push('/login')
+  } catch (error) {
+    logoutError.value = getApiErrorMessage(
+      error,
+      '当前设备的网络认证结束失败，账号尚未退出，请检查服务后重试'
+    )
+  } finally {
+    logoutPending.value = false
+  }
 }
 
 function syncSessionFromStorage() {
@@ -144,6 +162,7 @@ onBeforeUnmount(() => {
           :reconnect-attempt="reconnectAttempt"
           :api-status="apiConnectivity.status"
           :api-message="apiConnectivity.message"
+          :logout-busy="logoutPending"
           @toggle-menu="menuOpen = !menuOpen"
           @retry-alert-socket="retryAlertSocket"
           @retry-api="retryApiConnectivity"
@@ -151,6 +170,7 @@ onBeforeUnmount(() => {
         />
 
         <main class="app-content">
+          <p v-if="logoutError" class="alert error" aria-live="polite">{{ logoutError }}</p>
           <RouterView v-slot="{ Component, route: currentRoute }">
             <!-- 不同业务 URL 使用独立实例，避免分页和弹窗状态串场。 -->
             <component

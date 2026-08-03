@@ -92,12 +92,18 @@ export function useAlertSocket() {
       } catch {
         payload = { title: String(event.data || '新告警') }
       }
+      if (String(payload?.type || '').toUpperCase() === 'PING') {
+        if (current.readyState === WebSocket.OPEN) {
+          current.send(JSON.stringify({ type: 'PONG' }))
+        }
+        return
+      }
       pushToast(payload)
       window.dispatchEvent(new CustomEvent('wifi:alert-received', { detail: payload }))
     }
-    current.onerror = () => {
-      if (socket === current) current.close()
-    }
+    // 浏览器会在错误后触发 onclose；只让 onclose 驱动状态和重连，
+    // 避免同一连接先显示断开、随后又被其他事件改回已连接。
+    current.onerror = () => {}
     current.onclose = () => {
       if (socket !== current) return
       socket = null
