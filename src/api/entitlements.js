@@ -1,0 +1,17 @@
+import http from './http'
+const path = (value) => encodeURIComponent(String(value))
+
+export const getProducts = () => http.get('/entitlements/products')
+export const getMyEntitlement = () => http.get('/entitlements/me')
+export const getMyPurchases = (params) => http.get('/entitlements/purchases', { params })
+export const getMyUsageLogs = (params) => http.get('/entitlements/usage-logs', { params })
+export const createOrder = (data) => http.post('/entitlements/orders', data)
+export const getOrders = (params) => http.get('/entitlements/orders', { params })
+export const getOrder = (orderNo) => http.get(`/entitlements/orders/${path(orderNo)}`)
+export const cancelOrder = (orderNo) => http.post(`/entitlements/orders/${path(orderNo)}/cancel`)
+export const createPayment = (orderNo, data) => http.post(`/entitlements/orders/${path(orderNo)}/payments`, data)
+export const getPayment = (paymentNo) => http.get(`/entitlements/payments/${path(paymentNo)}`)
+export const completeDemoPayment = (paymentNo) => http.post(`/entitlements/payments/${path(paymentNo)}/demo-complete`)
+export const applyRefund = (data) => http.post('/entitlements/refunds', data)
+export const getRefunds = (params) => http.get('/entitlements/refunds', { params })
+export const getRefund = (refundNo) => http.get(`/entitlements/refunds/${path(refundNo)}`)

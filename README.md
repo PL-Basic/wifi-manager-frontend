@@ -97,8 +97,10 @@ npm.cmd run preview
 
 ```text
 /api -> http://localhost:8080
-/ws  -> ws://localhost:8384
+/ws  -> ws://localhost:8080 -> monitor-service
 ```
+
+WebSocket 不能由浏览器直连 `monitor-service:8384`。Gateway 负责校验 JWT、限制管理员角色并注入可信身份头。
 
 使用前请确认以下后端服务已启动：
 
@@ -112,6 +114,20 @@ monitor-service
 ```
 
 同时需要 MySQL、Nacos 等基础服务正常运行。
+
+## 正式部署
+
+`vite.config.js` 中的 `server` 和 `proxy` 只用于本地开发，不会写入 `npm.cmd run build` 生成的 `dist`。
+
+正式环境使用同一个 HTTPS 域名提供页面、API 和 WebSocket：
+
+```text
+https://wifi.example.com/       -> 前端 dist
+https://wifi.example.com/api/** -> Gateway :8080
+wss://wifi.example.com/ws/**    -> Gateway :8080 -> monitor-service
+```
+
+不要在正式环境使用 `localhost`、`portal.test`、Vite 开发服务器或浏览器直连 `8384`。完整步骤和 Nginx 示例见 [docs/frontend-deployment.md](docs/frontend-deployment.md)。
 
 ## 账号与角色
 

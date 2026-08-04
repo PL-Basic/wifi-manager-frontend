@@ -1,27 +1,33 @@
 <script setup>
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
-import { login, loginByVerifyCode, sendVerifyCode, resetPassword } from '@/api/auth'
+import { getOAuthProviders, login, loginByVerifyCode, sendVerifyCode, startOAuthLogin } from '@/api/auth'
+import { mergeOAuthAvailability } from '@/config/oauth'
 import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/session'
+import { getHomePath } from '@/utils/access'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { getSafeInternalRedirect } from '@/utils/navigation'
 
 const router = useRouter()
+const route = useRoute()
 const initialLoginMode = localStorage.getItem('lastLoginMode') === 'contact' ? 'contact' : 'username'
 const form = reactive({
   account: localStorage.getItem(initialLoginMode === 'contact' ? 'lastContactAccount' : 'lastUsernameAccount')
     || localStorage.getItem('lastAccount')
     || '',
   password: '',
-  newPassword: '',
-  confirmPassword: '',
   code: '',
   remember: true
 })
 
-const authMode = ref('login')
 const loginMode = ref(initialLoginMode)
 const contactLoginType = ref('password')
 const loading = ref(false)
+// 记录当前正在发起授权的 Provider，同时阻止重复点击。
+const oauthLoadingProvider = ref('')
+const oauthProviders = ref(mergeOAuthAvailability([]))
+const oauthProvidersLoading = ref(true)
 const message = ref('')
 const messageType = ref('success')
 const sendingCode = ref(false)
@@ -44,34 +50,6 @@ const modeCopy = {
     label: '手机号 / 邮箱',
     placeholder: '请输入手机号或邮箱'
   }
-}
-
-function enterResetPasswordMode(){
-  authMode.value = 'resetPassword'
-  loginMode.value = 'contact'
-  contactLoginType.value = 'code'
-  form.confirmPassword = ''
-  message.value = ''
-  form.password = ''
-  form.newPassword = ''
-  resetCodeState()
-  showPassword.value = false
-  syncCodeCooldownForAccount()
-}
-
-function backToLoginMode(){
-  authMode.value = 'login'
-  message.value = ''
-  form.newPassword = ''
-  form.confirmPassword = ''
-  resetCodeState()
-  showPassword.value = false
-  syncCodeCooldownForAccount()
-}
-
-
-function currentCodeScene(){
-  return authMode.value === 'resetPassword' ? 'reset_password' : 'login'
 }
 
 function resetCodeState() {
@@ -116,27 +94,8 @@ function showSuccess(text) {
   messageType.value = 'success'
 }
 
-function resolveSendCodeError(error) {
-  if (error.code === 'ECONNABORTED') {
-    return '请求超时，请稍后查看邮箱或重新发送验证码'
-  }
-
-  if (!error.response) {
-    return '网络连接异常，请检查网络后重试'
-  }
-
-  if (error.response.status === 429) {
-    return error.response.data?.message || '请求过于频繁，请稍后再试'
-  }
-
-  if (error.response.status >= 500) {
-    return '服务器处理异常，请稍后重试'
-  }
-
-  return error.response.data?.message || '验证码发送失败'
-}
-
 function resolveLoginErrorMessage(data) {
+  // 后端将具体登录结果放在 data.status 中。
   const status = data?.data?.status
 
   if (status === 'ACCOUNT_LOCKED') {
@@ -152,11 +111,15 @@ function resolveLoginErrorMessage(data) {
   }
 
   if (status === 'PASSWORD_ERROR') {
-    return data.message || '账号或密码错误'
+    // 只有联系方式登录下的验证码模式，才允许使用验证码错误提示。
+    const isCodeLogin = loginMode.value === 'contact'
+      && contactLoginType.value === 'code'
+
+    return data.message
+      || (isCodeLogin ? '验证码错误或已过期' : '账号或密码错误')
   }
 
   return data?.message || '登录失败'
-
 }
 
 function switchLoginMode(mode) {
@@ -193,8 +156,7 @@ function isEmail(value) {
 
 function redirectIfLoggedIn() {
   if (!getToken()) return false
-  const role = getStoredRole()
-  router.replace(Number(role) <= 1 ? '/dashboard' : '/profile')
+  router.replace(getSafeInternalRedirect(route.query.redirect, getHomePath(getStoredRole())))
   return true
 }
 
@@ -219,10 +181,11 @@ function finishLogin(auth,account) {
     localStorage.removeItem('lastUsernameAccount')
   }
 
-  router.push(Number(role) <= 1 ? '/dashboard' : '/profile')
+  router.push(getSafeInternalRedirect(route.query.redirect, getHomePath(role)))
 }
 
 async function handleLogin() {
+  if (loading.value || oauthLoadingProvider.value) return
   const isCodeLogin = loginMode.value === 'contact' && contactLoginType.value === 'code'
   const isPasswordLogin = !isCodeLogin
 
@@ -285,14 +248,14 @@ async function handleLogin() {
     }
   } catch (error) {
     const responseData = error.response?.data
-    showError( responseData ? resolveLoginErrorMessage(responseData) : '网络请求失败')
+    showError(responseData ? resolveLoginErrorMessage(responseData) : getApiErrorMessage(error, '登录失败'))
   } finally {
     loading.value = false
   }
 }
 
 async function handleSendCode() {
-  if (sendingCode.value || codeCooldown.value > 0) return
+  if (sendingCode.value || codeCooldown.value > 0 || oauthLoadingProvider.value) return
 
   const account = form.account.trim()
   
@@ -312,7 +275,7 @@ async function handleSendCode() {
   try{
     const{ data } = await sendVerifyCode({
       target: account,
-      scene: currentCodeScene()
+      scene: 'login'
     })
   
 
@@ -324,81 +287,82 @@ async function handleSendCode() {
       showError(data.message || '验证码发送失败')
     }
   } catch (error) {
-    showError(resolveSendCodeError(error))
+    showError(getApiErrorMessage(error, '验证码发送失败'))
   } finally {
     sendingCode.value = false
   }
 }
 
-async function handleResetPassword() {
+async function handleOAuthLogin(provider) {
+  if (
+    loading.value
+    || sendingCode.value
+    || oauthLoadingProvider.value
+    || !provider.configured
+  ) {
+    return
+  }
+
   if (redirectIfLoggedIn()) return
-  
-  const account = form.account.trim()
-  const code = form.code.trim()
 
-  if(!account) {
-    showError('请输入手机号或邮箱')
-    return
-  }
-
-  if(!isPhone(account) && !isEmail(account)) {
-    showError('请输入正确的手机号或邮箱')
-    return
-  }
-
-  if(!code) {
-    showError('请输入验证码')
-    return
-  }
-
-  if(!form.newPassword) {
-    showError('请输入新密码')
-    return
-  }
-
-  if(form.newPassword.length < 6 || form.newPassword.length > 20) {
-    showError('新密码长度需要在6-20之间')
-    return
-  }
-
-  if (!form.confirmPassword) {
-    showError('请再次输入新密码')
-    return
-  }
-
-  if (form.newPassword !== form.confirmPassword) {
-    showError('两次输入的新密码不一致')
-    return
-  }
-
-  loading.value = true
+  oauthLoadingProvider.value = provider.code
   message.value = ''
+  let redirecting = false
 
-  try{
-    const { data } = await resetPassword({
-      target: account,
-      code,
-      newPassword: form.newPassword
-    })
+  try {
+    const callbackUrl = new URL(`/oauth-complete/${provider.code}`, window.location.origin)
+    const redirectPath = getSafeInternalRedirect(route.query.redirect, '')
+    if (redirectPath) callbackUrl.searchParams.set('redirect', redirectPath)
+    const returnUri = callbackUrl.toString()
 
-    if(data.code === 200) {
-      showSuccess(data.message || '密码重置成功，请使用新密码登录哦')
-      authMode.value = 'login'
-      contactLoginType.value = 'password'
-      form.password = ''
-      form.newPassword = ''
-      form.confirmPassword = ''
-      form.code = ''
-      resetCodeState()
-    }else{
-      showError(data.message || '密码重置失败')
-    } 
+    const { data } = await startOAuthLogin(
+      provider.code,
+      returnUri
+    )
+
+    const authorizationUrl = data?.data?.authorizationUrl
+
+    if (data?.code !== 200 || !authorizationUrl) {
+      showError(
+        data?.message
+        || `${provider.label} OAuth 当前未配置`
+      )
+      return
+    }
+
+    // 请求期间若其他标签页已经登录，不再继续跳转到 Provider。
+    if (redirectIfLoggedIn()) return
+
+    window.location.assign(authorizationUrl)
+
+    // 保持按钮锁定，直到浏览器真正离开当前页面。
+    redirecting = true
   } catch (error) {
-    showError(error.response?.data?.message || '密码重置失败')
+    showError(
+      getApiErrorMessage(
+        error,
+        `${provider.label} OAuth 当前未配置`
+      )
+    )
   } finally {
-    loading.value = false
+    if (!redirecting) {
+      oauthLoadingProvider.value = ''
+    }
   }
+}
 
+async function loadOAuthProviders() {
+  oauthProvidersLoading.value = true
+  try {
+    const { data } = await getOAuthProviders()
+    oauthProviders.value = data?.code === 200
+      ? mergeOAuthAvailability(data.data)
+      : mergeOAuthAvailability([])
+  } catch {
+    oauthProviders.value = mergeOAuthAvailability([])
+  } finally {
+    oauthProvidersLoading.value = false
+  }
 }
 
 function startCodeCooldown(seconds = 60){
@@ -420,13 +384,17 @@ function startCodeCooldown(seconds = 60){
 
 onMounted(() => {
   if (redirectIfLoggedIn()) return
+  loadOAuthProviders()
   stopSessionSync = onSessionChange(() => {
     redirectIfLoggedIn()
   })
   const authMessage = sessionStorage.getItem('authMessage')
   if (authMessage) {
-    showError(authMessage)
+    const authMessageType = sessionStorage.getItem('authMessageType')
+    if (authMessageType === 'success') showSuccess(authMessage)
+    else showError(authMessage)
     sessionStorage.removeItem('authMessage')
+    sessionStorage.removeItem('authMessageType')
   }
 })
 
@@ -450,11 +418,11 @@ onBeforeUnmount(() => {
 
       <section class="auth-panel auth-panel--login">
         <div class="auth-copy">
-          <p class="eyebrow">{{ authMode === 'resetPassword' ? '账号找回' : '账号登录'}}</p>
-          <h2>{{ authMode === 'resetPassword' ? '重置密码' : modeCopy[loginMode].title }}</h2>
+          <p class="eyebrow">账号登录</p>
+          <h2>{{ modeCopy[loginMode].title }}</h2>
         </div>
 
-        <div v-if="authMode === 'login'" class="auth-mode-switch" role="tablist" aria-label="登录账号类型">
+        <div class="auth-mode-switch" role="tablist" aria-label="登录账号类型">
           <button
             type="button"
             :class="{ active: loginMode === 'username' }"
@@ -472,7 +440,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <form v-if="authMode === 'login'" class="auth-form" @submit.prevent="handleLogin">
+        <form class="auth-form" @submit.prevent="handleLogin">
           <label>
             <span>{{ modeCopy[loginMode].label }}</span>
             <input
@@ -544,106 +512,45 @@ onBeforeUnmount(() => {
             <span>记住账号</span>
           </label>
 
-          <button type="submit" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
-        
-          <div class="password-recovery">
-            <a
-              href=""
-              class="auth-inline-link"
-              @click.prevent="enterResetPasswordMode">
-              忘记密码？
-            </a>
-          </div>
-        </form>
-        
-        <form v-else class="auth-form" @submit.prevent="handleResetPassword">
-          <label>
-            <span>手机号 / 邮箱</span>
-            <input 
-              v-model="form.account"
-              type="text"
-              inputmode="email"
-              autocomplete="username"
-              placeholder="请输入手机号或邮箱"
-              @input="syncCodeCooldownForAccount"
-            />
-          </label>
-          
-          <label>
-            <span>新密码</span>
-            <div class="password-field">
-              <input
-                v-model="form.newPassword"
-                :type="showPassword ? 'text' : 'password'"
-                autocomplete="new-password"
-                placeholder="请输入新密码"
-              />
-              <button
-                type="button" 
-                @click="showPassword = !showPassword">
-                {{ showPassword ? '隐藏' : '查看' }}
-              </button>
-            </div>
-          </label>
-
-          <label>
-            <span>确认新密码</span>
-            <input
-              v-model="form.confirmPassword"
-              :type="showPassword ? 'text' : 'password'"
-              autocomplete="new-password"
-              placeholder="请再次输入新密码"
-            />
-          </label>
-
-          <label>
-            <span>验证码</span>
-            <div class="code-row">
-              <input
-                v-model="form.code"
-                type="text"
-                maxlength="6"
-                autocomplete="one-time-code"
-                placeholder="请输入验证码"
-              />
-              <button
-                type="button"
-                :disabled="sendingCode || codeCooldown >0"
-                @click="handleSendCode"
-              >
-                {{ codeCooldown > 0 ? `${codeCooldown}s 后重发` : sendingCode ? '发送中...' : '发送验证码'}}
-              </button>
-            </div>
-          </label>
-
-          <button 
+          <button
             type="submit"
-            :disabled="loading">
-            {{ loading ? '重置中...' : '重置密码' }}
-          </button> 
-
+            :disabled="loading || Boolean(oauthLoadingProvider)"
+          >
+            {{ loading ? '登录中...' : '登录' }}
+          </button>
         </form>
+
+        <div class="oauth-login">
+          <p class="oauth-login__label">其他登录方式</p>
+
+          <div class="oauth-login__actions">
+            <button
+              v-for="provider in oauthProviders"
+              :key="provider.code"
+              type="button"
+              class="oauth-login__button"
+              :disabled="
+                loading
+                || sendingCode
+                || Boolean(oauthLoadingProvider)
+                || oauthProvidersLoading
+                || !provider.configured
+              "
+              :title="provider.configured ? `${provider.label} 登录` : `${provider.label} OAuth 当前未配置`"
+              :aria-label="provider.configured ? `${provider.label} 登录` : `${provider.label} OAuth 当前未配置`"
+              @click="handleOAuthLogin(provider)"
+            >
+              <img :src="provider.logo" alt="" aria-hidden="true" />
+              <span class="sr-only">{{ oauthLoadingProvider === provider.code ? '跳转中' : provider.label }}</span>
+            </button>
+          </div>
+        </div>
 
         <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
-        
-        <div v-if="authMode === 'login'" class="auth-switch">
-          <span>
-            没有账号？
-            <router-link to="/register">
-              创建账号
-            </router-link>
-          </span>
-        </div>
-       
-        <p v-else class="auth-switch">
-          想起密码了？
-          <a
-            href=""
-            class="auth-inline-link"
-            @click.prevent="backToLoginMode">
-            返回登录
-          </a>
-        </p>
+        <nav class="auth-utility-links" aria-label="账号帮助">
+          <router-link class="auth-footer-link" to="/forgot-password">忘记密码</router-link>
+          <router-link class="auth-footer-link" to="/register">没有账号？创建账号</router-link>
+        </nav>
       </section>  
     </main>
   </div>
