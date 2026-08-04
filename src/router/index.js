@@ -30,6 +30,7 @@ import OrdersView from '@/views/OrdersView.vue'
 import OrderDetailView from '@/views/OrderDetailView.vue'
 import RefundsView from '@/views/RefundsView.vue'
 import RefundDetailView from '@/views/RefundDetailView.vue'
+import RestrictedAccountView from '@/views/RestrictedAccountView.vue'
 import {
   ROLE_ADMIN,
   ROLE_SUPER_ADMIN,
@@ -44,6 +45,7 @@ import {
   isTokenExpired
 } from '@/utils/session'
 import { getSafeInternalRedirect } from '@/utils/navigation'
+import { hasPendingAccount } from '@/utils/accountState'
 
 const ADMIN_ROLES = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
 const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
@@ -54,7 +56,7 @@ const routes = [
     redirect: () => (
       getToken()
         ? getHomePath(getStoredRole())
-        : '/login'
+        : hasPendingAccount() ? '/account-restricted' : '/login'
     )
   },
   {
@@ -79,6 +81,12 @@ const routes = [
     path: '/oauth-complete/:provider',
     name: 'oauth-complete',
     component: OAuthCompleteView
+  },
+  {
+    path: '/account-restricted',
+    name: 'account-restricted',
+    component: RestrictedAccountView,
+    meta: { pendingAccountOnly: true }
   },
   {
     path: '/portal',
@@ -300,6 +308,28 @@ const routes = [
         meta: { title: '退款审核', breadcrumbs: ['运营', '退款审核'], roles: ADMIN_ROLES }
       },
       {
+        path: 'platform',
+        redirect: '/app/platform/tenants'
+      },
+      {
+        path: 'platform/tenants',
+        name: 'app-platform-tenants',
+        component: () => import('@/views/platform/TenantsView.vue'),
+        meta: { title: '平台租户', breadcrumbs: ['平台', '租户管理'], roles: SUPER_ADMIN_ROLES }
+      },
+      {
+        path: 'platform/tenants/:tenantId',
+        name: 'app-platform-tenant-detail',
+        component: () => import('@/views/platform/TenantDetailView.vue'),
+        meta: { title: '租户详情', breadcrumbs: ['平台', '租户管理', '租户详情'], roles: SUPER_ADMIN_ROLES }
+      },
+      {
+        path: 'platform/saas-plans',
+        name: 'app-platform-saas-plans',
+        component: () => import('@/views/platform/SaasPlansView.vue'),
+        meta: { title: 'SaaS 套餐', breadcrumbs: ['平台', 'SaaS 套餐'], roles: SUPER_ADMIN_ROLES }
+      },
+      {
         path: 'insights',
         redirect: '/app/insights/gis'
       },
@@ -350,7 +380,7 @@ const routes = [
     redirect: () => (
       getToken()
         ? getHomePath(getStoredRole())
-        : '/login'
+        : hasPendingAccount() ? '/account-restricted' : '/login'
     )
   }
 ]
@@ -363,6 +393,11 @@ const router = createRouter({
 router.beforeEach((to) => {
   const token = getToken()
   const role = normalizeRole(getStoredRole())
+
+  if (to.meta.pendingAccountOnly) {
+    if (token) return getHomePath(role)
+    return hasPendingAccount() ? true : { name: 'login' }
+  }
 
   if (token && isTokenExpired()) {
     clearSession('登录状态已过期，请重新登录')

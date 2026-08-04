@@ -8,6 +8,11 @@ import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/se
 import { getHomePath } from '@/utils/access'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { getSafeInternalRedirect } from '@/utils/navigation'
+import {
+  TENANT_MEMBERSHIP_PENDING,
+  clearPendingAccount,
+  savePendingAccount
+} from '@/utils/accountState'
 
 const router = useRouter()
 const route = useRoute()
@@ -161,6 +166,7 @@ function redirectIfLoggedIn() {
 }
 
 function finishLogin(auth,account) {
+  clearPendingAccount()
   const role = auth.role ?? 2
   setSession(auth.token,{
     username: auth.username, 
@@ -183,6 +189,11 @@ function finishLogin(auth,account) {
   }
 
   router.push(getSafeInternalRedirect(route.query.redirect, getHomePath(role)))
+}
+
+function enterRestrictedAccount(auth, message) {
+  savePendingAccount(auth, message)
+  router.push('/account-restricted')
 }
 
 async function handleLogin() {
@@ -242,8 +253,15 @@ async function handleLogin() {
     const data = response.data
     
     if (data.code === 200) {
-      finishLogin(data.data, account)
-      showSuccess(data.message || '登录成功')
+      const auth = data.data || {}
+      if (auth.accountState === TENANT_MEMBERSHIP_PENDING) {
+        enterRestrictedAccount(auth, data.message)
+      } else if (auth.token) {
+        finishLogin(auth, account)
+        showSuccess(data.message || '登录成功')
+      } else {
+        showError('登录成功响应缺少访问凭证')
+      }
     } else {
       showError(resolveLoginErrorMessage(data))
     }

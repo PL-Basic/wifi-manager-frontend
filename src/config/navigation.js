@@ -1,4 +1,4 @@
-import { Activity, Ban, Bell, ClipboardCheck, CreditCard, FileClock, Gauge, KeyRound, MapPin, Radio, ReceiptText, RefreshCcw, Router, ScrollText, ShieldCheck, ShoppingBag, UserRound, Users } from 'lucide-vue-next'
+import { Activity, Ban, Bell, Building2, ClipboardCheck, CreditCard, FileClock, Gauge, KeyRound, Layers3, MapPin, Radio, ReceiptText, RefreshCcw, Router, ScrollText, ShieldCheck, ShoppingBag, UserRound, Users } from 'lucide-vue-next'
 import {ROLE_ADMIN, ROLE_SUPER_ADMIN, canAccessRoles} from '@/utils/access'
 
 const ADMIN_ROLES = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
@@ -22,6 +22,14 @@ export const NAVIGATION_GROUPS = [
         label: '总览',
         items: [
             { to: '/app/overview', label: '运行总览', icon: Gauge, roles: ADMIN_ROLES }
+        ]
+    },
+    {
+        key: 'platform',
+        label: '平台',
+        items: [
+            { to: '/app/platform/tenants', label: '租户管理', icon: Building2, roles: SUPER_ADMIN_ROLES },
+            { to: '/app/platform/saas-plans', label: 'SaaS 套餐', icon: Layers3, roles: SUPER_ADMIN_ROLES }
         ]
     },
     {
