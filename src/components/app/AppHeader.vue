@@ -1,7 +1,8 @@
 <script setup>
-import { LogOut, Menu } from 'lucide-vue-next'
+import { Menu } from 'lucide-vue-next'
 import Breadcrumbs from '@/components/app/Breadcrumbs.vue'
 import ConnectionStatus from '@/components/app/ConnectionStatus.vue'
+import AccountMenu from '@/components/app/AccountMenu.vue'
 
 defineProps({
   displayName: {
@@ -16,6 +17,10 @@ defineProps({
     type: Boolean,
     default: false
   },
+  username: { type: String, default: '' },
+  avatar: { type: String, default: '' },
+  currentUserId: { type: String, default: '' },
+  accounts: { type: Array, default: () => [] },
   connectionState: { type: String, default: 'idle' },
   reconnectAttempt: { type: Number, default: 0 },
   apiStatus: { type: String, default: 'unknown' },
@@ -26,6 +31,8 @@ defineProps({
 const emit = defineEmits([
   'toggle-menu',
   'logout',
+  'switch-account',
+  'forget-account',
   'retry-alert-socket',
   'retry-api'
 ])
@@ -58,21 +65,18 @@ const emit = defineEmits([
         @retry-socket="emit('retry-alert-socket')"
         @retry-api="emit('retry-api')"
       />
-      <div class="app-user-identity">
-        <strong>{{ displayName || '当前用户' }}</strong>
-        <span>{{ roleLabel }}</span>
-      </div>
-
-      <button
-        class="icon-button"
-        type="button"
-        title="退出登录"
-        aria-label="退出登录"
-        :disabled="logoutBusy"
-        @click="emit('logout')"
-      >
-        <LogOut :size="19" />
-      </button>
+      <AccountMenu
+        :display-name="displayName"
+        :username="username"
+        :role-label="roleLabel"
+        :avatar="avatar"
+        :current-user-id="currentUserId"
+        :accounts="accounts"
+        :busy="logoutBusy"
+        @logout="emit('logout')"
+        @switch-account="emit('switch-account', $event)"
+        @forget-account="emit('forget-account', $event)"
+      />
     </div>
   </header>
 </template>

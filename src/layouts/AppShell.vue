@@ -6,9 +6,13 @@ import AppHeader from '@/components/app/AppHeader.vue'
 import AppSidebar from '@/components/app/AppSidebar.vue'
 import GlobalToast from '@/components/app/GlobalToast.vue'
 import ActionConfirmDialog from '@/components/app/ActionConfirmDialog.vue'
+import AccountSwitchDialog from '@/components/app/AccountSwitchDialog.vue'
+import { getMyProfile } from '@/api/account'
+import { loginByVerifyCode } from '@/api/auth'
 import { useAlertSocket } from '@/composables/useAlertSocket'
 import { useApiConnectivity } from '@/composables/useApiConnectivity'
 import { getApiErrorMessage } from '@/utils/apiError'
+import { forgetAccount, getAccountHistory, rememberAccount } from '@/utils/accountHistory'
 import { revokeActivePortalSession } from '@/utils/portalSession'
 import {
   ROLE_ADMIN,
@@ -19,10 +23,15 @@ import {
 } from '@/utils/access'
 import {
   clearSession,
+  getStoredAvatar,
   getStoredDisplayName,
   getStoredRole,
+  getStoredUsername,
   getToken,
-  onSessionChange
+  onSessionChange,
+  parseTokenPayload,
+  setSession,
+  syncSessionUser
 } from '@/utils/session'
 
 const router = useRouter()
@@ -31,6 +40,13 @@ const route = useRoute()
 const menuOpen = ref(false)
 const role = ref(normalizeRole(getStoredRole()))
 const displayName = ref(getStoredDisplayName())
+const username = ref(getStoredUsername())
+const avatar = ref(getStoredAvatar())
+const currentUserId = ref(String(parseTokenPayload()?.sub || ''))
+const accounts = ref(getAccountHistory())
+const switchTarget = ref(null)
+const switchPending = ref(false)
+const switchError = ref('')
 // 其他标签页切换账号后，递增版本号以重新创建当前业务页面。
 const sessionRevision = ref(0)
 const logoutPending = ref(false)
@@ -57,6 +73,112 @@ const roleLabel = computed(() => {
   if (role.value === ROLE_ADMIN) return '管理员'
   return '普通用户'
 })
+
+async function loadCurrentAccount() {
+  const userId = String(parseTokenPayload()?.sub || '')
+  currentUserId.value = userId
+  if (!userId) return
+
+  try {
+    const response = await getMyProfile(userId)
+    if (response.data?.code !== 200 || !response.data.data) return
+    const profile = response.data.data
+    username.value = profile.username || getStoredUsername()
+    displayName.value = profile.nickname || username.value
+    avatar.value = profile.avatar || ''
+    syncSessionUser(profile)
+    accounts.value = rememberAccount(profile)
+  } catch {
+    accounts.value = rememberAccount({
+      userId,
+      username: getStoredUsername(),
+      nickname: getStoredDisplayName(),
+      avatar: getStoredAvatar()
+    })
+  }
+}
+
+function openAccountSwitch(account) {
+  switchTarget.value = account
+  switchError.value = ''
+}
+
+function removeRememberedAccount(userId) {
+  accounts.value = forgetAccount(userId)
+}
+
+function closeAccountSwitch() {
+  if (switchPending.value) return
+  switchTarget.value = null
+  switchError.value = ''
+}
+
+async function switchAccount(credentials) {
+  if (switchPending.value || !switchTarget.value) return
+  switchPending.value = true
+  switchError.value = ''
+
+  let switchStage = 'verify'
+  let sessionReplaced = false
+  try {
+    const response = await loginByVerifyCode(credentials)
+    const body = response.data
+    if (body?.code !== 200 || !body.data?.token) {
+      throw new Error(body?.message || '验证码验证失败')
+    }
+
+    switchStage = 'identity'
+    const verifiedUserId = String(parseTokenPayload(body.data.token)?.sub || '')
+    if (!verifiedUserId || verifiedUserId !== String(switchTarget.value.userId)) {
+      throw new Error('验证结果与所选历史账号不一致，请移除该账号记录后重新登录')
+    }
+
+    // 旧 JWT 仍在 localStorage 中，先用它撤销当前设备的 Portal Session。
+    switchStage = 'revoke'
+    await revokeActivePortalSession()
+
+    switchStage = 'replace'
+    const auth = body.data
+    const nextRole = normalizeRole(auth.role)
+    disconnectAlertSocket()
+    setSession(auth.token, {
+      username: auth.username || switchTarget.value.username,
+      nickname: auth.nickname || '',
+      avatar: auth.avatar || '',
+      role: nextRole
+    })
+    sessionReplaced = true
+
+    switchTarget.value = null
+    role.value = nextRole
+    username.value = auth.username || ''
+    displayName.value = auth.nickname || username.value
+    avatar.value = auth.avatar || ''
+    activeToken = auth.token
+    sessionRevision.value += 1
+    connectAlertSocket(nextRole)
+    await router.replace(getHomePath(nextRole))
+    await loadCurrentAccount()
+  } catch (error) {
+    if (sessionReplaced) {
+      logoutError.value = '账号已经切换，但页面跳转失败，请刷新页面。'
+    } else {
+      if (switchStage === 'identity') {
+        switchError.value = error instanceof Error ? error.message : '历史账号身份校验失败'
+      } else if (switchStage === 'revoke') {
+        switchError.value = '验证码已通过，但旧网络认证结束失败，账号未切换。请恢复服务后重新获取验证码。'
+      } else if (switchStage === 'replace') {
+        switchError.value = '旧网络认证已经结束，但账号会话替换失败，请重新登录。'
+      } else {
+        switchError.value = error instanceof Error && !error.response
+          ? error.message
+          : getApiErrorMessage(error, '账号切换失败')
+      }
+    }
+  } finally {
+    switchPending.value = false
+  }
+}
 
 async function logout() {
   if (logoutPending.value) return
@@ -96,6 +218,9 @@ function syncSessionFromStorage() {
 
   role.value = nextRole
   displayName.value = getStoredDisplayName()
+  username.value = getStoredUsername()
+  avatar.value = getStoredAvatar()
+  currentUserId.value = String(parseTokenPayload()?.sub || '')
   activeToken = nextToken
 
   if (identityChanged) {
@@ -107,6 +232,7 @@ function syncSessionFromStorage() {
     if (canStayOnCurrentRoute) {
       sessionRevision.value += 1
     }
+    loadCurrentAccount()
   }
 
   // 角色变化后不能继续停留在已经失去权限的页面。
@@ -124,6 +250,7 @@ watch(
 
 onMounted(() => {
   connectAlertSocket(role.value)
+  loadCurrentAccount()
   stopSessionSync = onSessionChange(syncSessionFromStorage)
 })
 
@@ -137,6 +264,14 @@ onBeforeUnmount(() => {
     <StarrySky />
     <GlobalToast :toasts="toasts" />
     <ActionConfirmDialog />
+    <AccountSwitchDialog
+      :open="Boolean(switchTarget)"
+      :account="switchTarget"
+      :submitting="switchPending"
+      :submit-error="switchError"
+      @close="closeAccountSwitch"
+      @submit="switchAccount"
+    />
 
     <div class="app-shell-frame">
       <AppSidebar
@@ -156,6 +291,10 @@ onBeforeUnmount(() => {
       <div class="app-shell-body">
         <AppHeader
           :display-name="displayName"
+          :username="username"
+          :avatar="avatar"
+          :current-user-id="currentUserId"
+          :accounts="accounts"
           :role-label="roleLabel"
           :menu-open="menuOpen"
           :connection-state="connectionState"
@@ -167,6 +306,8 @@ onBeforeUnmount(() => {
           @retry-alert-socket="retryAlertSocket"
           @retry-api="retryApiConnectivity"
           @logout="logout"
+          @switch-account="openAccountSwitch"
+          @forget-account="removeRememberedAccount"
         />
 
         <main class="app-content">

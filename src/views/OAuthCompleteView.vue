@@ -120,6 +120,7 @@ async function handleCallback() {
       setSession(result.token, {
         username: result.username || '',
         nickname: result.nickname || '',
+        avatar: result.avatar || '',
         role
       })
 

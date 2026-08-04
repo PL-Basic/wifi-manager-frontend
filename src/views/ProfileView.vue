@@ -174,7 +174,7 @@ async function chooseAvatar(event) {
     const data = unwrap(await uploadMyAvatar(userId.value, file), '头像上传失败')
     if (!data?.url) throw new Error('头像上传结果缺少访问地址')
     profile.avatar = data.url
-    syncSessionUser({})
+    syncSessionUser({ avatar: profile.avatar })
     message.value = '头像上传成功'
     messageType.value = 'success'
   } catch (error) {

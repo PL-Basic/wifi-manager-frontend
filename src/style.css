@@ -2499,9 +2499,10 @@ body {
     display: none;
   }
 
-  .app-user-summary > .icon-button {
+  .app-user-summary > .account-menu {
     grid-column: 3;
     grid-row: 1;
+    justify-self: end;
   }
 
   .app-header .connection-status {
