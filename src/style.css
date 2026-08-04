@@ -901,6 +901,11 @@ button:disabled {
   font-size: 12px;
 }
 
+.map-provider-error--unconfigured {
+  color: #713f12;
+  background: rgba(254, 243, 199, 0.95);
+}
+
 .map-empty {
   position: absolute;
   inset: 0;
@@ -2494,9 +2499,10 @@ body {
     display: none;
   }
 
-  .app-user-summary > .icon-button {
+  .app-user-summary > .account-menu {
     grid-column: 3;
     grid-row: 1;
+    justify-self: end;
   }
 
   .app-header .connection-status {

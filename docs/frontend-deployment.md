@@ -35,15 +35,34 @@ Copy-Item .env.example .env
 VITE_API_BASE_URL=/api
 VITE_ALERT_WS_PATH=/ws/alerts
 VITE_ALERT_WS_URL=
-VITE_MAP_TILE_URL=https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
-VITE_MAP_ATTRIBUTION=&copy; OpenStreetMap contributors
+VITE_MAP_PROVIDER=none
+VITE_AMAP_KEY=
+VITE_AMAP_SECURITY_JS_CODE=
+VITE_MAP_TILE_URL=
+VITE_MAP_ATTRIBUTION=
 ```
 
 `.env` 不进入 Git。`VITE_*` 在构建时写入静态资源，修改后必须重新执行构建；`WIFI_DEV_*` 只控制本地 Vite 开发服务器。
 
 个人定位通过浏览器 Geolocation API 获取手机 GPS。除浏览器认可的 `localhost` 外，该 API 只在 HTTPS 安全上下文中开放，因此手机通过局域网 IP 的普通 HTTP 开发地址访问时，页面会明确提示无法定位。正式域名必须配置有效 TLS。
 
-默认地图底图使用 OpenStreetMap。面向中国大陆正式运营时，应评估并切换到已获授权、网络稳定的地图服务；切换底图只需修改上述地图环境变量。若改用高德 Web JS API，还需要单独申请 Key 和安全密钥，并在地图适配层处理 WGS-84 与 GCJ-02 坐标差异，不能直接把后端 WGS-84 坐标当作高德坐标绘制。
+地图底图属于外部 Provider，不提供隐式默认值。未配置时页面会明确显示“地图底图服务未配置”，但仍绘制后端返回的真实坐标、轨迹、精度范围和空间分析图层。
+
+使用高德 Web JS API 时，在本机未跟踪的 `.env` 中配置：
+
+```dotenv
+VITE_MAP_PROVIDER=amap
+VITE_AMAP_KEY=在高德控制台创建的Web端JS API Key
+VITE_AMAP_SECURITY_JS_CODE=该Key对应的安全密钥
+VITE_MAP_TILE_URL=
+VITE_MAP_ATTRIBUTION=
+```
+
+高德控制台必须把实际开发和生产站点来源加入允许范围；至少按实际使用情况覆盖 `localhost`、`portal.test` 和正式 HTTPS 域名。`VITE_*` 会进入浏览器静态资源，高德 Key 与安全密钥必须依靠控制台的服务平台、域名白名单和配额限制防止滥用，不能当作后端机密；真实值不得写入 `.env.example` 或提交 Git。修改 `.env` 后必须完全重启 Vite，热更新不会重新载入环境变量。
+
+后端 GIS 和定位数据继续使用 WGS-84。前端在交给高德地图绘制前通过高德坐标转换服务转换为 GCJ-02，数据库不回写转换后的坐标。高德 Provider 可以在 HTTP 测试页显示已有位置和 GIS 图层，但不会绕过浏览器 Geolocation 的安全上下文限制：手机获取新 GPS 位置仍需 HTTPS。
+
+使用其他已授权 XYZ 瓦片服务时设置 `VITE_MAP_PROVIDER=xyz`，并填写 `VITE_MAP_TILE_URL` 与正确 Attribution。高德 Web JS API Key 不能拼入 XYZ 瓦片地址。
 
 在前端仓库执行：
 

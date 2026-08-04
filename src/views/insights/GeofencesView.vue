@@ -64,10 +64,13 @@ function setMode(mode) {
   if (mode !== activeMode.value) router.replace({ query: { ...route.query, view: mode } })
 }
 
-function optionalNumber(value) {
-  if (value === '' || value === null || value === undefined) return undefined
-  const number = Number(value)
-  return Number.isFinite(number) ? number : undefined
+function idValue(value) {
+  return String(value ?? '').trim()
+}
+
+function optionalIdValue(value) {
+  const normalized = idValue(value)
+  return normalized || undefined
 }
 
 async function loadFences(page = fencePager.current) {
@@ -98,7 +101,7 @@ async function loadFences(page = fencePager.current) {
 
 function validateEventFilters() {
   for (const [key, label] of [['fenceId', '围栏 ID'], ['userId', '用户 ID'], ['sessionId', 'Session ID']]) {
-    if (eventFilters[key] !== '' && (!Number.isInteger(Number(eventFilters[key])) || Number(eventFilters[key]) <= 0)) return `${label}必须是正整数`
+    if (idValue(eventFilters[key]) && !/^[1-9]\d*$/.test(idValue(eventFilters[key]))) return `${label} 必须是大于 0 的整数`
   }
   if (eventFilters.mac.trim() && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(eventFilters.mac.trim())) return 'MAC 地址格式无效'
   if ((eventFilters.startTime && !eventFilters.endTime) || (!eventFilters.startTime && eventFilters.endTime)) return '事件时间范围必须同时填写开始和结束时间'
@@ -114,9 +117,9 @@ async function loadEvents(page = eventPager.current) {
     const data = readData(await getGeofenceEvents({
       current: page,
       size: eventPager.size,
-      fenceId: optionalNumber(appliedEventFilters.fenceId),
-      userId: optionalNumber(appliedEventFilters.userId),
-      sessionId: optionalNumber(appliedEventFilters.sessionId),
+      fenceId: optionalIdValue(appliedEventFilters.fenceId),
+      userId: optionalIdValue(appliedEventFilters.userId),
+      sessionId: optionalIdValue(appliedEventFilters.sessionId),
       mac: appliedEventFilters.mac.trim().toUpperCase() || undefined,
       eventType: appliedEventFilters.eventType || undefined,
       startTime: appliedEventFilters.startTime || undefined,
@@ -338,9 +341,9 @@ onMounted(() => loadFences(1))
 
     <template v-else>
       <form class="glass-toolbar geofence-event-filter-grid" @submit.prevent="searchEvents">
-        <label><span>围栏 ID</span><input v-model="eventFilters.fenceId" type="number" min="1" /></label>
-        <label><span>用户 ID</span><input v-model="eventFilters.userId" type="number" min="1" /></label>
-        <label><span>Session ID</span><input v-model="eventFilters.sessionId" type="number" min="1" /></label>
+        <label><span>围栏 ID</span><input v-model="eventFilters.fenceId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>用户 ID</span><input v-model="eventFilters.userId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>Session ID</span><input v-model="eventFilters.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>MAC</span><input v-model="eventFilters.mac" maxlength="17" /></label>
         <label><span>事件类型</span><select v-model="eventFilters.eventType"><option value="">全部</option><option value="ENTER">进入</option><option value="EXIT">离开</option></select></label>
         <label><span>开始时间</span><input v-model="eventFilters.startTime" type="datetime-local" /></label>

@@ -5,6 +5,17 @@ const ADMIN_ROLES = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
 const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
 
 // 导航只登记当前已有业务，尚未完成的页面不创建假入口。
+export const ACCOUNT_NAV_ITEMS = Object.freeze([
+    { to: '/app/profile', label: '账户总览', icon: UserRound },
+    { to: '/app/purchase', label: '购买权益', icon: ShoppingBag },
+    { to: '/app/entitlements', label: '我的权益', icon: ReceiptText },
+    { to: '/app/orders', label: '订单记录', icon: CreditCard },
+    { to: '/app/refunds', label: '退款记录', icon: RefreshCcw },
+    { to: '/app/account-security', label: '账户安全', icon: KeyRound },
+    { to: '/app/connections', label: '我的连接', icon: Activity },
+    { to: '/app/location', label: '我的定位', icon: MapPin }
+])
+
 export const NAVIGATION_GROUPS = [
     {
         key: 'overview',
@@ -49,20 +60,6 @@ export const NAVIGATION_GROUPS = [
             { to: '/app/insights/gis', label: 'GIS 空间分析', icon: MapPin, roles: ADMIN_ROLES },
             { to: '/app/insights/analytics', label: '运行分析', icon: Activity, roles: ADMIN_ROLES },
             { to: '/app/insights/geofences', label: '地理围栏', icon: ShieldCheck, roles: ADMIN_ROLES }
-        ]
-    },
-    {
-        key: 'account',
-        label: '个人',
-        items: [
-            { to: '/app/profile', label: '账户总览', icon: UserRound },
-            { to: '/app/purchase', label: '购买权益', icon: ShoppingBag },
-            { to: '/app/entitlements', label: '我的权益', icon: ReceiptText },
-            { to: '/app/orders', label: '订单记录', icon: CreditCard },
-            { to: '/app/refunds', label: '退款记录', icon: RefreshCcw },
-            { to: '/app/account-security', label: '账户安全', icon: KeyRound },
-            { to: '/app/connections', label: '我的连接', icon: Activity },
-            { to: '/app/location', label: '我的定位', icon: MapPin }
         ]
     }
 ]

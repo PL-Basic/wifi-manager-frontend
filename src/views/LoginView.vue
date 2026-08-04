@@ -165,6 +165,7 @@ function finishLogin(auth,account) {
   setSession(auth.token,{
     username: auth.username, 
     nickname: auth.nickname || '', 
+    avatar: auth.avatar || '',
     role 
   })
 

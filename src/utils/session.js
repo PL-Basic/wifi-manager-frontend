@@ -1,4 +1,4 @@
-const AUTH_KEYS = ['token', 'username', 'nickname', 'role']
+const AUTH_KEYS = ['token', 'username', 'nickname', 'avatar', 'role']
 const AUTH_EVENT_KEY = 'authEvent'
 const LOCAL_SESSION_SYNC_EVENT = 'wifi:session-sync'
 
@@ -56,6 +56,10 @@ export function getStoredDisplayName() {
   return localStorage.getItem('nickname') || getStoredUsername()
 }
 
+export function getStoredAvatar() {
+  return localStorage.getItem('avatar') || ''
+}
+
 export function setSession(token, user = {}) {
   localStorage.setItem('token', token || '')
   syncSessionUser(user, false)
@@ -69,6 +73,10 @@ export function syncSessionUser(user = {}, emit = true) {
 
   if (user.nickname !== undefined) {
     localStorage.setItem('nickname', user.nickname || '')
+  }
+
+  if (user.avatar !== undefined) {
+    localStorage.setItem('avatar', user.avatar || '')
   }
 
   if (user.role !== undefined && user.role !== null) {

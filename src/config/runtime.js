@@ -41,13 +41,23 @@ export function getAlertWebSocketUrl() {
   return `${protocol}//${window.location.host}${path}`
 }
 
-// 地图底图保持可配置，正式部署可替换为已获得授权的地图服务。
-export const MAP_TILE_URL = String(
-  import.meta.env.VITE_MAP_TILE_URL
-  || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-).trim()
+// 地图 Provider 必须显式配置，避免把不可达或未授权的服务伪装成默认能力。
+const configuredMapProvider = String(import.meta.env.VITE_MAP_PROVIDER || '').trim().toLowerCase()
 
-export const MAP_ATTRIBUTION = String(
-  import.meta.env.VITE_MAP_ATTRIBUTION
-  || '&copy; OpenStreetMap contributors'
+export const MAP_TILE_URL = String(import.meta.env.VITE_MAP_TILE_URL || '').trim()
+export const MAP_TILE_CONFIGURED = Boolean(MAP_TILE_URL)
+export const MAP_ATTRIBUTION = String(import.meta.env.VITE_MAP_ATTRIBUTION || '').trim()
+
+export const AMAP_KEY = String(import.meta.env.VITE_AMAP_KEY || '').trim()
+export const AMAP_SECURITY_JS_CODE = String(
+  import.meta.env.VITE_AMAP_SECURITY_JS_CODE || ''
 ).trim()
+export const AMAP_CONFIGURED = Boolean(AMAP_KEY && AMAP_SECURITY_JS_CODE)
+
+export const MAP_PROVIDER = configuredMapProvider
+  || (MAP_TILE_CONFIGURED ? 'xyz' : 'none')
+
+export const MAP_PROVIDER_CONFIGURED = (
+  (MAP_PROVIDER === 'amap' && AMAP_CONFIGURED)
+  || (MAP_PROVIDER === 'xyz' && MAP_TILE_CONFIGURED)
+)
