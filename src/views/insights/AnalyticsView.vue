@@ -187,10 +187,13 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : undefined
 }
 
-function optionalNumber(value) {
-  return value === '' || value === null || value === undefined
-    ? undefined
-    : numberValue(value)
+function idValue(value) {
+  return String(value ?? '').trim()
+}
+
+function optionalIdValue(value) {
+  const normalized = idValue(value)
+  return normalized || undefined
 }
 
 function validateTime(form, maximumHours) {
@@ -207,8 +210,8 @@ function validateTime(form, maximumHours) {
 }
 
 function validateOptionalId(value, label) {
-  if (value === '' || value === null || value === undefined) return ''
-  return Number.isInteger(Number(value)) && Number(value) > 0 ? '' : `${label}必须是正整数`
+  if (!idValue(value)) return ''
+  return /^[1-9]\d*$/.test(idValue(value)) ? '' : `${label} 必须是大于 0 的整数`
 }
 
 function validate(mode, form) {
@@ -216,7 +219,7 @@ function validate(mode, form) {
   if (timeError) return timeError
 
   if (mode === 'signals') {
-    if (!Number.isInteger(Number(form.nodeId)) || Number(form.nodeId) <= 0) return '节点 ID 必须是正整数'
+    if (!/^[1-9]\d*$/.test(idValue(form.nodeId))) return '节点 ID 必须是大于 0 的整数'
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(form.mac.trim())) return '必须填写完整 MAC 地址'
     if (!Number.isInteger(Number(form.sampleLimit)) || Number(form.sampleLimit) < 3 || Number(form.sampleLimit) > 101) return '采样数必须是 3 到 101 之间的整数'
     if (![1, 5, 15, 30, 60].includes(Number(form.bucketMinutes))) return '信号分桶间隔无效'
@@ -245,10 +248,10 @@ function validate(mode, form) {
 
 function commonFilterParams(form) {
   return {
-    userId: optionalNumber(form.userId),
+    userId: optionalIdValue(form.userId),
     mac: form.mac.trim().toUpperCase() || undefined,
-    sessionId: optionalNumber(form.sessionId),
-    nodeId: optionalNumber(form.nodeId),
+    sessionId: optionalIdValue(form.sessionId),
+    nodeId: optionalIdValue(form.nodeId),
     deviceCode: form.deviceCode.trim() || undefined,
     startTime: form.startTime,
     endTime: form.endTime,
@@ -259,7 +262,7 @@ function commonFilterParams(form) {
 function requestFor(mode, form) {
   if (mode === 'signals') {
     return getSignalAnalytics({
-      nodeId: numberValue(form.nodeId),
+      nodeId: idValue(form.nodeId),
       mac: form.mac.trim().toUpperCase(),
       startTime: form.startTime,
       endTime: form.endTime,
@@ -374,14 +377,14 @@ watch(
 
     <form class="glass-toolbar insights-filter-grid" @submit.prevent="runQuery">
       <template v-if="activeMode === 'signals'">
-        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="number" min="1" required /></label>
+        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" required /></label>
         <label><span>MAC</span><input v-model="activeForm.mac" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" required /></label>
       </template>
       <template v-else>
-        <label><span>用户 ID</span><input v-model="activeForm.userId" type="number" min="1" /></label>
+        <label><span>用户 ID</span><input v-model="activeForm.userId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>MAC</span><input v-model="activeForm.mac" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" /></label>
-        <label><span>Session ID</span><input v-model="activeForm.sessionId" type="number" min="1" /></label>
-        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="number" min="1" /></label>
+        <label><span>Session ID</span><input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>设备编码</span><input v-model="activeForm.deviceCode" maxlength="64" /></label>
       </template>
 

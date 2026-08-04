@@ -10,6 +10,7 @@ import { formatDateTime, formatDuration } from '@/utils/billing'
 import { clearSession, getStoredDisplayName, getToken, onSessionChange } from '@/utils/session'
 import {
   forgetActivePortalSession,
+  getActivePortalSessionId,
   rememberActivePortalSession,
   revokeActivePortalSession
 } from '@/utils/portalSession'
@@ -226,9 +227,15 @@ onMounted(() => {
     }
   })
 
-  const existingSessionId = String(route.query.sessionId || '').trim()
-  if (/^\d+$/.test(existingSessionId) && existingSessionId !== '0') {
+  const querySessionId = String(route.query.sessionId || '').trim()
+  const existingSessionId = (
+    /^\d+$/.test(querySessionId) && querySessionId !== '0'
+      ? querySessionId
+      : getActivePortalSessionId()
+  )
+  if (existingSessionId) {
     status.value = { sessionId: existingSessionId }
+    replaceSessionQuery(existingSessionId)
     pollStatus(existingSessionId)
   } else if (!contextValid.value) {
     error.value = '接入信息不完整，请从 WiFi 热点认证入口重新打开此页面'

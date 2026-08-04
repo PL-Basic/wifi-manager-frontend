@@ -2,7 +2,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MAP_ATTRIBUTION, MAP_TILE_URL } from '@/config/runtime'
+import {
+  MAP_ATTRIBUTION,
+  MAP_PROVIDER,
+  MAP_PROVIDER_CONFIGURED,
+  MAP_TILE_URL
+} from '@/config/runtime'
+import { convertWgs84Positions, loadAmap } from '@/utils/amap'
 
 const props = defineProps({
   locations: {
@@ -16,10 +22,15 @@ const props = defineProps({
 })
 
 const mapElement = ref(null)
-const tileError = ref(false)
+const providerError = ref('')
 let map = null
 let locationLayer = null
 let resizeObserver = null
+let amapApi = null
+let amapOverlays = []
+let amapInfoWindow = null
+let renderVersion = 0
+let destroyed = false
 
 const validLocations = computed(() => props.locations
   .map((item) => ({
@@ -66,7 +77,7 @@ function tooltipContent(point, latestPoint) {
   ].join('<br>')
 }
 
-function renderLocations() {
+function renderLeafletLocations() {
   if (!map || !locationLayer) return
 
   locationLayer.clearLayers()
@@ -123,32 +134,155 @@ function renderLocations() {
   }
 }
 
-onMounted(async () => {
-  await nextTick()
-  if (!mapElement.value) return
+function clearAmapOverlays() {
+  if (map && amapOverlays.length) map.remove(amapOverlays)
+  amapOverlays = []
+  amapInfoWindow?.close()
+}
 
+async function renderAmapLocations() {
+  if (!map || !amapApi) return
+
+  const version = ++renderVersion
+  const points = validLocations.value
+  clearAmapOverlays()
+
+  if (!points.length) {
+    map.setZoomAndCenter(4, [105, 35])
+    return
+  }
+
+  try {
+    const converted = await convertWgs84Positions(
+      amapApi,
+      points.map((point) => [point.lng, point.lat])
+    )
+    if (destroyed || version !== renderVersion) return
+
+    const renderPoints = points.map((point, index) => ({
+      point,
+      position: converted[index]
+    }))
+    const chronological = [...renderPoints].reverse()
+
+    if (chronological.length > 1) {
+      amapOverlays.push(new amapApi.Polyline({
+        path: chronological.map((item) => item.position),
+        strokeColor: '#0891b2',
+        strokeWeight: 4,
+        strokeOpacity: 0.82
+      }))
+    }
+
+    renderPoints.forEach(({ point, position }, index) => {
+      const isLatest = index === 0
+
+      if (point.accuracyValue > 0) {
+        amapOverlays.push(new amapApi.Circle({
+          center: position,
+          radius: Math.min(point.accuracyValue, 1000),
+          strokeColor: isLatest ? '#d97706' : '#0284c7',
+          strokeWeight: 1,
+          fillColor: isLatest ? '#f59e0b' : '#38bdf8',
+          fillOpacity: 0.1
+        }))
+      }
+
+      const marker = new amapApi.CircleMarker({
+        center: position,
+        radius: isLatest ? 8 : 5,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+        fillColor: isLatest ? '#f59e0b' : '#0284c7',
+        fillOpacity: 1,
+        zIndex: isLatest ? 120 : 110
+      })
+
+      marker.on('mouseover', () => {
+        if (!amapInfoWindow) {
+          amapInfoWindow = new amapApi.InfoWindow({
+            offset: new amapApi.Pixel(0, -8)
+          })
+        }
+        amapInfoWindow.setContent(tooltipContent(point, isLatest))
+        amapInfoWindow.open(map, position)
+      })
+      marker.on('mouseout', () => amapInfoWindow?.close())
+      amapOverlays.push(marker)
+    })
+
+    map.add(amapOverlays)
+    if (renderPoints.length === 1) {
+      map.setZoomAndCenter(16, renderPoints[0].position)
+    } else {
+      map.setFitView(amapOverlays, false, [32, 32, 32, 32], 17)
+    }
+    providerError.value = ''
+  } catch (error) {
+    providerError.value = error?.message || '高德地图数据绘制失败'
+  }
+}
+
+function renderLocations() {
+  if (amapApi) {
+    renderAmapLocations()
+    return
+  }
+  renderLeafletLocations()
+}
+
+function initLeafletMap() {
   map = L.map(mapElement.value, {
     zoomControl: true,
     attributionControl: true
   })
 
-  L.tileLayer(MAP_TILE_URL, {
-    attribution: MAP_ATTRIBUTION,
-    maxZoom: 19
-  })
-    .on('tileload', () => {
-      tileError.value = false
+  if (MAP_PROVIDER === 'xyz' && MAP_PROVIDER_CONFIGURED) {
+    L.tileLayer(MAP_TILE_URL, {
+      attribution: MAP_ATTRIBUTION,
+      maxZoom: 19
     })
-    .on('tileerror', () => {
-      tileError.value = true
-    })
-    .addTo(map)
+      .on('tileload', () => {
+        providerError.value = ''
+      })
+      .on('tileerror', () => {
+        providerError.value = '地图底图加载失败，定位坐标仍已保留。请检查外网连接或地图服务配置。'
+      })
+      .addTo(map)
+  }
 
   locationLayer = L.layerGroup().addTo(map)
-  renderLocations()
+  renderLeafletLocations()
+}
+
+onMounted(async () => {
+  await nextTick()
+  if (!mapElement.value) return
+
+  if (MAP_PROVIDER === 'amap' && MAP_PROVIDER_CONFIGURED) {
+    try {
+      amapApi = await loadAmap()
+      if (destroyed || !mapElement.value) return
+      map = new amapApi.Map(mapElement.value, {
+        viewMode: '2D',
+        zoom: 4,
+        center: [105, 35]
+      })
+      await renderAmapLocations()
+    } catch (error) {
+      providerError.value = error?.message || '高德地图 Provider 加载失败'
+      amapApi = null
+      if (!map && mapElement.value) initLeafletMap()
+    }
+  } else {
+    initLeafletMap()
+  }
 
   if (typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => map?.invalidateSize())
+    resizeObserver = new ResizeObserver(() => {
+      if (amapApi) map?.resize?.()
+      else map?.invalidateSize?.()
+    })
     resizeObserver.observe(mapElement.value)
   }
 })
@@ -158,11 +292,16 @@ watch(validLocations, () => {
 }, { deep: true })
 
 onBeforeUnmount(() => {
+  destroyed = true
+  renderVersion += 1
   resizeObserver?.disconnect()
   resizeObserver = null
-  map?.remove()
+  clearAmapOverlays()
+  if (amapApi) map?.destroy?.()
+  else map?.remove?.()
   map = null
   locationLayer = null
+  amapApi = null
 })
 </script>
 
@@ -179,9 +318,10 @@ onBeforeUnmount(() => {
     <div class="location-map-body">
       <div class="map-canvas map-canvas--leaflet">
         <div ref="mapElement" class="leaflet-map" aria-label="GPS 定位地图"></div>
-        <p v-if="tileError" class="map-provider-error">
-          地图底图加载失败，定位坐标仍已保留。请检查外网连接或地图服务配置。
+        <p v-if="!MAP_PROVIDER_CONFIGURED" class="map-provider-error map-provider-error--unconfigured">
+          地图底图服务未配置，定位坐标、轨迹和精度范围仍可查看。
         </p>
+        <p v-else-if="providerError" class="map-provider-error">{{ providerError }}</p>
         <div v-if="!validLocations.length" class="map-empty map-empty--overlay">
           完成一次手机定位上报后，当前位置和历史轨迹会显示在这里
         </div>

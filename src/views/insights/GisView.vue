@@ -85,6 +85,9 @@ const states = reactive(Object.fromEntries(
     layer: { coordinateSystem: 'WGS84', features: [] }
   }])
 ))
+const appliedQueries = reactive(Object.fromEntries(
+  MODES.map((mode) => [mode.key, null])
+))
 
 const activeMode = computed(() => (
   MODES.some((mode) => mode.key === route.query.view)
@@ -96,6 +99,16 @@ const activeDefinition = computed(() => (
 ))
 const activeForm = computed(() => forms[activeMode.value])
 const activeState = computed(() => states[activeMode.value])
+const canRefresh = computed(() => Boolean(appliedQueries[activeMode.value]))
+const hasResultData = computed(() => {
+  const result = activeState.value.result
+  if (!result) return false
+
+  if (activeMode.value === 'trajectory') return Boolean(result.points?.length)
+  if (activeMode.value === 'stays') return Boolean(result.stayPoints?.length)
+  if (activeMode.value === 'heatmap') return Boolean(result.grids?.length)
+  return Boolean(result.observations?.length)
+})
 
 const summaryItems = computed(() => {
   const result = activeState.value.result
@@ -154,10 +167,13 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : undefined
 }
 
-function optionalNumber(value) {
-  return value === '' || value === null || value === undefined
-    ? undefined
-    : numberValue(value)
+function idValue(value) {
+  return String(value ?? '').trim()
+}
+
+function optionalIdValue(value) {
+  const normalized = idValue(value)
+  return normalized || undefined
 }
 
 function validateRange(form, maximumHours) {
@@ -191,9 +207,16 @@ function validateInteger(value, minimum, maximum, label) {
   return ''
 }
 
+function validatePositiveId(value, label) {
+  if (!/^[1-9]\d*$/.test(idValue(value))) {
+    return `${label} 必须是大于 0 的整数`
+  }
+  return ''
+}
+
 function validateOptionalId(value, label) {
-  if (value === '' || value === null || value === undefined) return ''
-  return validateInteger(value, 1, Number.MAX_SAFE_INTEGER, label)
+  if (!idValue(value)) return ''
+  return validatePositiveId(value, label)
 }
 
 function validate(mode, form) {
@@ -201,7 +224,7 @@ function validate(mode, form) {
   if (rangeError) return rangeError
 
   if (mode !== 'heatmap') {
-    const sessionError = validateInteger(form.sessionId, 1, Number.MAX_SAFE_INTEGER, 'Session ID')
+    const sessionError = validatePositiveId(form.sessionId, 'Session ID')
     if (sessionError) return sessionError
   }
 
@@ -223,8 +246,15 @@ function validate(mode, form) {
       const idError = validateOptionalId(form[key], label)
       if (idError) return idError
     }
-    if (form.mac.trim() && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(form.mac.trim())) {
+    const normalizedMac = form.mac.trim()
+    if (normalizedMac && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(normalizedMac)) {
       return 'MAC 地址必须使用 AA:BB:CC:DD:EE:FF 格式'
+    }
+    if (!idValue(form.userId)
+        && !idValue(form.sessionId)
+        && !idValue(form.nodeId)
+        && !normalizedMac) {
+      return '用户 ID、Session ID、节点 ID 或 MAC 至少填写一项'
     }
     return validateInteger(form.gridSizeMeters, 10, 1000, '网格尺寸')
   }
@@ -250,14 +280,14 @@ function requestFor(mode, form) {
   if (mode === 'trajectory') {
     return getGisTrajectory({
       ...common,
-      sessionId: numberValue(form.sessionId)
+      sessionId: idValue(form.sessionId)
     })
   }
 
   if (mode === 'stays') {
     return getGisStayPoints({
       ...common,
-      sessionId: numberValue(form.sessionId),
+      sessionId: idValue(form.sessionId),
       radiusMeters: numberValue(form.radiusMeters),
       minimumStaySeconds: numberValue(form.minimumStaySeconds)
     })
@@ -266,9 +296,9 @@ function requestFor(mode, form) {
   if (mode === 'heatmap') {
     return getGisHeatmap({
       ...common,
-      userId: optionalNumber(form.userId),
-      sessionId: optionalNumber(form.sessionId),
-      nodeId: optionalNumber(form.nodeId),
+      userId: optionalIdValue(form.userId),
+      sessionId: optionalIdValue(form.sessionId),
+      nodeId: optionalIdValue(form.nodeId),
       mac: form.mac.trim().toUpperCase() || undefined,
       gridSizeMeters: numberValue(form.gridSizeMeters)
     })
@@ -276,7 +306,7 @@ function requestFor(mode, form) {
 
   return getGisNodeCoverage({
     ...common,
-    sessionId: numberValue(form.sessionId),
+    sessionId: idValue(form.sessionId),
     matchToleranceSeconds: numberValue(form.matchToleranceSeconds)
   })
 }
@@ -288,39 +318,54 @@ function layerFor(mode, data) {
   return nodeCoverageLayer(data)
 }
 
-async function runQuery() {
-  const mode = activeMode.value
-  const form = forms[mode]
+async function executeQuery(mode, queryForm, rememberOnSuccess) {
   const state = states[mode]
-  const validationError = validate(mode, form)
-
-  if (validationError) {
-    requestGate.invalidate(mode)
-    state.loading = false
-    state.error = validationError
-    return
-  }
+  const definition = MODES.find((item) => item.key === mode) || MODES[0]
 
   const version = requestGate.begin(mode)
   state.loading = true
   state.error = ''
 
   try {
-    const data = readData(await requestFor(mode, form), `${activeDefinition.value.title}查询失败`)
+    const data = readData(await requestFor(mode, queryForm), `${definition.title}查询失败`)
     if (!requestGate.isCurrent(version, mode)) return
 
     state.result = data
     state.layer = layerFor(mode, data)
     state.loaded = true
+    if (rememberOnSuccess) appliedQueries[mode] = { ...queryForm }
   } catch (error) {
     if (!requestGate.isCurrent(version, mode)) return
     state.error = error instanceof Error && !error.response
       ? error.message
-      : getApiErrorMessage(error, `${activeDefinition.value.title}查询失败`)
+      : getApiErrorMessage(error, `${definition.title}查询失败`)
     state.loaded = true
   } finally {
     if (requestGate.isCurrent(version, mode)) state.loading = false
   }
+}
+
+function runQuery() {
+  const mode = activeMode.value
+  const queryForm = { ...forms[mode] }
+  const validationError = validate(mode, queryForm)
+
+  if (validationError) {
+    requestGate.invalidate(mode)
+    states[mode].loading = false
+    states[mode].error = validationError
+    return
+  }
+
+  executeQuery(mode, queryForm, true)
+}
+
+function refreshCurrentResult() {
+  const mode = activeMode.value
+  const appliedQuery = appliedQueries[mode]
+  if (!appliedQuery || states[mode].loading) return
+
+  executeQuery(mode, { ...appliedQuery }, false)
 }
 
 function resetActiveForm() {
@@ -384,8 +429,8 @@ watch(
       <button
         class="secondary-button"
         type="button"
-        :disabled="activeState.loading"
-        @click="runQuery"
+        :disabled="activeState.loading || !canRefresh"
+        @click="refreshCurrentResult"
       >
         <RefreshCw :size="16" aria-hidden="true" />
         刷新当前结果
@@ -407,13 +452,13 @@ watch(
     <form class="glass-toolbar insights-filter-grid" @submit.prevent="runQuery">
       <label v-if="activeMode !== 'heatmap'">
         <span>Session ID</span>
-        <input v-model="activeForm.sessionId" type="number" min="1" required />
+        <input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" required />
       </label>
 
       <template v-if="activeMode === 'heatmap'">
-        <label><span>用户 ID</span><input v-model="activeForm.userId" type="number" min="1" /></label>
-        <label><span>Session ID</span><input v-model="activeForm.sessionId" type="number" min="1" /></label>
-        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="number" min="1" /></label>
+        <label><span>用户 ID</span><input v-model="activeForm.userId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>Session ID</span><input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>MAC</span><input v-model="activeForm.mac" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" /></label>
       </template>
 
@@ -464,7 +509,7 @@ watch(
       :title="`正在查询${activeDefinition.title}`"
     />
 
-    <template v-if="activeState.result">
+    <template v-if="hasResultData">
       <section class="insights-summary-grid">
         <article v-for="item in summaryItems" :key="item[0]" class="glass-panel">
           <span>{{ item[0] }}</span>

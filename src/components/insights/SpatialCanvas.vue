@@ -2,7 +2,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MAP_ATTRIBUTION, MAP_TILE_URL } from '@/config/runtime'
+import {
+  MAP_ATTRIBUTION,
+  MAP_PROVIDER,
+  MAP_PROVIDER_CONFIGURED,
+  MAP_TILE_URL
+} from '@/config/runtime'
+import { convertWgs84Positions, loadAmap } from '@/utils/amap'
 
 const props = defineProps({
   layer: {
@@ -16,10 +22,15 @@ const props = defineProps({
 })
 
 const mapElement = ref(null)
-const tileError = ref(false)
+const providerError = ref('')
 let map = null
 let featureLayer = null
 let resizeObserver = null
+let amapApi = null
+let amapOverlays = []
+let amapInfoWindow = null
+let renderVersion = 0
+let destroyed = false
 
 const positions = computed(() => {
   const result = []
@@ -71,7 +82,7 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;')
 }
 
-function addFeature(feature) {
+function addLeafletFeature(feature) {
   const color = colorFor(feature.tone)
   const label = escapeHtml(feature.label || feature.id || '空间要素')
 
@@ -115,10 +126,10 @@ function addFeature(feature) {
   }).bindTooltip(label).addTo(featureLayer)
 }
 
-function renderLayer() {
+function renderLeafletLayer() {
   if (!map || !featureLayer) return
   featureLayer.clearLayers()
-  ;(props.layer?.features || []).forEach(addFeature)
+  ;(props.layer?.features || []).forEach(addLeafletFeature)
 
   if (!positions.value.length) {
     map.setView([35, 105], 4)
@@ -130,22 +141,164 @@ function renderLayer() {
   else map.fitBounds(L.latLngBounds(allPoints), { padding: [32, 32], maxZoom: 17 })
 }
 
+function featurePositions(feature) {
+  if (feature?.type === 'point') {
+    return validPosition(feature.coordinates) ? [feature.coordinates] : []
+  }
+  return (feature?.coordinates || []).filter(validPosition)
+}
+
+function clearAmapOverlays() {
+  if (map && amapOverlays.length) map.remove(amapOverlays)
+  amapOverlays = []
+  amapInfoWindow?.close()
+}
+
+function bindAmapLabel(overlay, label, position) {
+  if (!label) return
+  overlay.on('mouseover', () => {
+    if (!amapInfoWindow) {
+      amapInfoWindow = new amapApi.InfoWindow({
+        offset: new amapApi.Pixel(0, -8)
+      })
+    }
+    amapInfoWindow.setContent(label)
+    amapInfoWindow.open(map, position)
+  })
+  overlay.on('mouseout', () => amapInfoWindow?.close())
+}
+
+async function renderAmapLayer() {
+  if (!map || !amapApi) return
+
+  const version = ++renderVersion
+  const descriptors = (props.layer?.features || [])
+    .map((feature) => ({ feature, positions: featurePositions(feature) }))
+    .filter((item) => item.positions.length)
+  const sourcePositions = descriptors.flatMap((item) => item.positions)
+
+  clearAmapOverlays()
+  if (!sourcePositions.length) {
+    map.setZoomAndCenter(4, [105, 35])
+    return
+  }
+
+  try {
+    const converted = await convertWgs84Positions(amapApi, sourcePositions)
+    if (destroyed || version !== renderVersion) return
+
+    let offset = 0
+    descriptors.forEach(({ feature, positions: source }) => {
+      const convertedPositions = converted.slice(offset, offset + source.length)
+      offset += source.length
+
+      const color = colorFor(feature.tone)
+      const label = escapeHtml(feature.label || feature.id || '空间要素')
+      let overlay = null
+
+      if (feature.type === 'line' && convertedPositions.length > 1) {
+        overlay = new amapApi.Polyline({
+          path: convertedPositions,
+          strokeColor: color,
+          strokeWeight: 4,
+          strokeOpacity: 0.85
+        })
+      } else if (feature.type === 'polygon' && convertedPositions.length > 2) {
+        const weight = Number(feature.weight)
+        overlay = new amapApi.Polygon({
+          path: convertedPositions,
+          strokeColor: color,
+          strokeWeight: 2,
+          fillColor: color,
+          fillOpacity: Number.isFinite(weight)
+            ? Math.min(0.72, Math.max(0.18, 0.18 + weight * 0.54))
+            : 0.35
+        })
+      } else if (feature.type === 'point' && convertedPositions.length === 1) {
+        const weight = Number(feature.weight)
+        const radius = Number.isFinite(weight) && weight > 0
+          ? Math.min(14, 6 + Math.log10(weight + 1) * 2)
+          : 7
+        overlay = new amapApi.CircleMarker({
+          center: convertedPositions[0],
+          radius,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          fillColor: color,
+          fillOpacity: 0.92
+        })
+      }
+
+      if (!overlay) return
+      bindAmapLabel(overlay, label, convertedPositions[0])
+      amapOverlays.push(overlay)
+    })
+
+    map.add(amapOverlays)
+    if (converted.length === 1) {
+      map.setZoomAndCenter(16, converted[0])
+    } else {
+      map.setFitView(amapOverlays, false, [32, 32, 32, 32], 17)
+    }
+    providerError.value = ''
+  } catch (error) {
+    providerError.value = error?.message || '高德地图空间图层绘制失败'
+  }
+}
+
+function renderLayer() {
+  if (amapApi) {
+    renderAmapLayer()
+    return
+  }
+  renderLeafletLayer()
+}
+
+function initLeafletMap() {
+  map = L.map(mapElement.value)
+  if (MAP_PROVIDER === 'xyz' && MAP_PROVIDER_CONFIGURED) {
+    L.tileLayer(MAP_TILE_URL, {
+      attribution: MAP_ATTRIBUTION,
+      maxZoom: 19
+    })
+      .on('tileload', () => { providerError.value = '' })
+      .on('tileerror', () => {
+        providerError.value = '地图底图加载失败，空间分析数据仍已保留。'
+      })
+      .addTo(map)
+  }
+  featureLayer = L.layerGroup().addTo(map)
+  renderLeafletLayer()
+}
+
 onMounted(async () => {
   await nextTick()
   if (!mapElement.value) return
-  map = L.map(mapElement.value)
-  L.tileLayer(MAP_TILE_URL, {
-    attribution: MAP_ATTRIBUTION,
-    maxZoom: 19
-  })
-    .on('tileload', () => { tileError.value = false })
-    .on('tileerror', () => { tileError.value = true })
-    .addTo(map)
-  featureLayer = L.layerGroup().addTo(map)
-  renderLayer()
+
+  if (MAP_PROVIDER === 'amap' && MAP_PROVIDER_CONFIGURED) {
+    try {
+      amapApi = await loadAmap()
+      if (destroyed || !mapElement.value) return
+      map = new amapApi.Map(mapElement.value, {
+        viewMode: '2D',
+        zoom: 4,
+        center: [105, 35]
+      })
+      await renderAmapLayer()
+    } catch (error) {
+      providerError.value = error?.message || '高德地图 Provider 加载失败'
+      amapApi = null
+      if (!map && mapElement.value) initLeafletMap()
+    }
+  } else {
+    initLeafletMap()
+  }
 
   if (typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => map?.invalidateSize())
+    resizeObserver = new ResizeObserver(() => {
+      if (amapApi) map?.resize?.()
+      else map?.invalidateSize?.()
+    })
     resizeObserver.observe(mapElement.value)
   }
 })
@@ -153,10 +306,15 @@ onMounted(async () => {
 watch(() => props.layer, () => nextTick(renderLayer), { deep: true })
 
 onBeforeUnmount(() => {
+  destroyed = true
+  renderVersion += 1
   resizeObserver?.disconnect()
-  map?.remove()
+  clearAmapOverlays()
+  if (amapApi) map?.destroy?.()
+  else map?.remove?.()
   map = null
   featureLayer = null
+  amapApi = null
 })
 </script>
 
@@ -169,7 +327,8 @@ onBeforeUnmount(() => {
 
     <div class="spatial-stage spatial-stage--leaflet">
       <div ref="mapElement" class="spatial-leaflet-map" :aria-label="`${title}地图`"></div>
-      <p v-if="tileError" class="map-provider-error">地图底图加载失败，空间分析数据仍已保留。</p>
+      <p v-if="!MAP_PROVIDER_CONFIGURED" class="map-provider-error map-provider-error--unconfigured">地图底图服务未配置，真实空间分析图层仍可查看。</p>
+      <p v-else-if="providerError" class="map-provider-error">{{ providerError }}</p>
       <div v-if="!positions.length" class="spatial-empty spatial-empty--overlay">
         <strong>暂无可绘制空间数据</strong>
         <span>完成查询后，这里会在真实地图上显示后端返回的空间图层。</span>

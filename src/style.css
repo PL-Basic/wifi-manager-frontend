@@ -901,6 +901,11 @@ button:disabled {
   font-size: 12px;
 }
 
+.map-provider-error--unconfigured {
+  color: #713f12;
+  background: rgba(254, 243, 199, 0.95);
+}
+
 .map-empty {
   position: absolute;
   inset: 0;
