@@ -126,6 +126,11 @@ async function handleRegister() {
     return
   }
 
+  if (!form.email.trim() && !form.phone.trim()) {
+    showError('请至少绑定手机号或邮箱')
+    return
+  }
+
   
   if(form.email.trim() && !form.emailCode.trim()) {
     showError('请输入邮箱验证码')
@@ -311,7 +316,7 @@ onBeforeUnmount(() => {
               v-model="form.email" 
               type="email" 
               autocomplete="email" 
-              placeholder="可选"
+              placeholder="邮箱或手机号至少填写一项"
               @input="resetEmailCodeState"
             />
           </label>
@@ -343,7 +348,7 @@ onBeforeUnmount(() => {
               v-model="form.phone" 
               type="tel" 
               autocomplete="tel" 
-              placeholder="可选"
+              placeholder="邮箱或手机号至少填写一项"
               @input="resetPhoneCodeState"
               />
           </label>

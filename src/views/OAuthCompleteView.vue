@@ -13,6 +13,11 @@ import {
   parseTokenPayload,
   setSession
 } from '@/utils/session'
+import {
+  TENANT_MEMBERSHIP_PENDING,
+  clearPendingAccount,
+  savePendingAccount
+} from '@/utils/accountState'
 
 const route = useRoute()
 const router = useRouter()
@@ -97,12 +102,7 @@ async function handleCallback() {
     }
 
     if (result.status === 'LOGIN_READY') {
-      if (!result.token) {
-        showState('error', '登录凭证缺失', 'OAuth 登录成功，但后端没有返回登录凭证。')
-        return
-      }
-
-      // 其他标签页已经登录时，不能覆盖当前浏览器共享账号。
+      // 同一浏览器共享一个身份；其他标签页已登录时，不写入受限态也不覆盖现有会话。
       if (getToken()) {
         showState(
           'existing-session',
@@ -114,9 +114,21 @@ async function handleCallback() {
         return
       }
 
+      if (result.accountState === TENANT_MEMBERSHIP_PENDING) {
+        savePendingAccount(result, result.message)
+        await router.replace('/account-restricted')
+        return
+      }
+
+      if (!result.token) {
+        showState('error', '登录凭证缺失', 'OAuth 登录成功，但后端没有返回登录凭证。')
+        return
+      }
+
       const role = result.role ?? 2
 
       sessionStorage.removeItem('authMessage')
+      clearPendingAccount()
       setSession(result.token, {
         username: result.username || '',
         nickname: result.nickname || '',
