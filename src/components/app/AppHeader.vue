@@ -3,6 +3,7 @@ import { Menu } from 'lucide-vue-next'
 import Breadcrumbs from '@/components/app/Breadcrumbs.vue'
 import ConnectionStatus from '@/components/app/ConnectionStatus.vue'
 import AccountMenu from '@/components/app/AccountMenu.vue'
+import TenantSwitcher from '@/components/app/TenantSwitcher.vue'
 
 defineProps({
   displayName: {
@@ -25,7 +26,10 @@ defineProps({
   reconnectAttempt: { type: Number, default: 0 },
   apiStatus: { type: String, default: 'unknown' },
   apiMessage: { type: String, default: '' },
-  logoutBusy: { type: Boolean, default: false }
+  logoutBusy: { type: Boolean, default: false },
+  role: { type: Number, required: true },
+  tenantContext: { type: Object, default: null },
+  contextBusy: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -34,7 +38,10 @@ const emit = defineEmits([
   'switch-account',
   'forget-account',
   'retry-alert-socket',
-  'retry-api'
+  'retry-api',
+  'switch-tenant',
+  'enter-platform-tenant',
+  'return-platform'
 ])
 </script>
 
@@ -57,6 +64,14 @@ const emit = defineEmits([
     </div>
 
     <div class="app-user-summary">
+      <TenantSwitcher
+        :role="role"
+        :context="tenantContext"
+        :busy="contextBusy"
+        @switch-tenant="emit('switch-tenant', $event)"
+        @enter-platform-tenant="emit('enter-platform-tenant', $event)"
+        @return-platform="emit('return-platform')"
+      />
       <ConnectionStatus
         :socket-status="connectionState"
         :socket-attempt="reconnectAttempt"

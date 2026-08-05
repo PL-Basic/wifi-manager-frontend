@@ -206,7 +206,7 @@ function continueBrowsing() {
     window.location.assign(target)
     return
   }
-  router.push('/app/profile')
+  router.push('/app/account/profile')
 }
 
 onMounted(() => {

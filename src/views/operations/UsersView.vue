@@ -110,7 +110,7 @@ function reset() {
 function edit(row) {
   // 本人资料走个人中心接口，避免把管理员管理接口当作个人资料入口。
   if (isSelf(row)) {
-    router.push('/app/profile')
+    router.push('/app/account/profile')
     return
   }
   selected.value = row

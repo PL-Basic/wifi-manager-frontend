@@ -1,5 +1,9 @@
 import http from './http'
 import { normalizeOAuthProvider } from '@/config/oauth'
+import {
+  completeRefreshStepUp,
+  logoutSession
+} from '@/utils/sessionRefresh'
 
 function requireOAuthProvider(provider) {
   const normalized = normalizeOAuthProvider(provider)
@@ -33,6 +37,26 @@ export function resetPassword(data) {
 
 export function getOAuthProviders() {
   return http.get('/auth/oauth/providers')
+}
+
+export function logout() {
+  return logoutSession()
+}
+
+export function refreshAfterStepUp(data) {
+  return completeRefreshStepUp(data)
+}
+
+export function sendAccountSwitchCode(data) {
+  return http.post('/auth/account-switch/codes', data)
+}
+
+export function switchAccount(data) {
+  return http.post('/auth/account-switch', data)
+}
+
+export function issueOperationToken(data) {
+  return http.post('/auth/operation-tokens', data)
 }
 
 // 获取 Provider 授权地址，页面拿到 authorizationUrl 后再跳转。

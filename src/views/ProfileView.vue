@@ -243,8 +243,8 @@ onMounted(loadData)
           <RouterLink class="billing-link" to="/app/entitlements"><span><ReceiptText :size="18" /><span>权益与使用流水<small>查看购买批次和每次时长变化</small></span></span><ChevronRight :size="18" /></RouterLink>
           <RouterLink class="billing-link" to="/app/orders"><span><CreditCard :size="18" /><span>订单记录<small>{{ account.orderTotal }} 笔订单</small></span></span><ChevronRight :size="18" /></RouterLink>
           <RouterLink class="billing-link" to="/app/refunds"><span><RefreshCcw :size="18" /><span>退款记录<small>{{ account.refundTotal }} 笔退款</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/account-security"><span><KeyRound :size="18" /><span>账户安全<small>管理密码、社交身份和删除申请</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/location"><span><MapPin :size="18" /><span>我的定位<small>查看个人定位授权和历史</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/account/security"><span><KeyRound :size="18" /><span>账户安全<small>管理密码、社交身份和删除申请</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/account/location"><span><MapPin :size="18" /><span>我的定位<small>查看个人定位授权和历史</small></span></span><ChevronRight :size="18" /></RouterLink>
         </nav>
       </article>
     </section>

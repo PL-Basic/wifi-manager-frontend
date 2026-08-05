@@ -4,7 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import { getOAuthProviders, login, loginByVerifyCode, sendVerifyCode, startOAuthLogin } from '@/api/auth'
 import { mergeOAuthAvailability } from '@/config/oauth'
-import { getStoredRole, getToken, onSessionChange, setSession } from '@/utils/session'
+import {
+  getStoredRole,
+  getStoredTenantContext,
+  getToken,
+  isTokenExpired,
+  onSessionChange,
+  setSession
+} from '@/utils/session'
 import { getHomePath } from '@/utils/access'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { getSafeInternalRedirect } from '@/utils/navigation'
@@ -160,20 +167,18 @@ function isEmail(value) {
 }
 
 function redirectIfLoggedIn() {
-  if (!getToken()) return false
-  router.replace(getSafeInternalRedirect(route.query.redirect, getHomePath(getStoredRole())))
+  if (!getToken() || isTokenExpired()) return false
+  router.replace(getSafeInternalRedirect(
+    route.query.redirect,
+    getHomePath(getStoredRole(), getStoredTenantContext())
+  ))
   return true
 }
 
 function finishLogin(auth,account) {
   clearPendingAccount()
   const role = auth.role ?? 2
-  setSession(auth.token,{
-    username: auth.username, 
-    nickname: auth.nickname || '', 
-    avatar: auth.avatar || '',
-    role 
-  })
+  setSession({ ...auth, role })
 
   if (form.remember) {
     localStorage.setItem('lastAccount', account)
@@ -188,7 +193,7 @@ function finishLogin(auth,account) {
     localStorage.removeItem('lastUsernameAccount')
   }
 
-  router.push(getSafeInternalRedirect(route.query.redirect, getHomePath(role)))
+  router.push(getSafeInternalRedirect(route.query.redirect, getHomePath(role, auth.context)))
 }
 
 function enterRestrictedAccount(auth, message) {

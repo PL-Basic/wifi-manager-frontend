@@ -2,42 +2,50 @@ import axios, { AxiosError } from 'axios'
 import { API_BASE_URL } from '@/config/runtime'
 import {
   clearSession,
+  getClientInstanceId,
   getToken,
   isTokenExpired
 } from '@/utils/session'
+import {
+  RefreshStepUpRequiredError,
+  ensureAccessSession
+} from '@/utils/sessionRefresh'
 import { reportApiConnectivity } from '@/utils/connectivity'
 
 const http = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000
+  timeout: 15000,
+  withCredentials: true
 })
 
-function isPublicAuthRequest(config) {
-  const url = config?.url || ''
-  const path = url.split('?')[0]
+function requestPath(config) {
+  return String(config?.url || '').split('?')[0]
+}
 
+function isPublicAuthRequest(config) {
+  const path = requestPath(config)
   const publicAuthPaths = [
     '/auth/login',
     '/auth/register',
     '/auth/codes',
     '/auth/code-login',
     '/auth/reset-password',
-    '/auth/oauth/providers'
+    '/auth/oauth/providers',
+    '/auth/refresh',
+    '/auth/refresh/step-up'
   ]
 
   if (publicAuthPaths.includes(path)) return true
 
-  // OAuth 发起和回调允许未登录访问，身份绑定仍必须携带 JWT。
+  // OAuth 发起和回调允许未登录访问，身份绑定仍必须携带 Access JWT。
   return /^\/auth\/oauth\/(github|qq|wechat)\/(authorize|callback)$/.test(path)
 }
 
 function redirectToLogin() {
   const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
-  const target = currentPath.startsWith('/login')
-    ? '/login'
-    : `/login?redirect=${encodeURIComponent(currentPath)}`
+  if (currentPath.startsWith('/login')) return
 
-  window.location.assign(target)
+  window.location.assign(`/login?redirect=${encodeURIComponent(currentPath)}`)
 }
 
 function rejectFailedEnvelope(response) {
@@ -55,24 +63,29 @@ function rejectFailedEnvelope(response) {
   )
 }
 
+function failureStatus(error) {
+  const httpStatus = Number(error.response?.status) || 0
+  const businessStatus = Number(error.response?.data?.code) || 0
+  return httpStatus >= 200 && httpStatus < 300 && businessStatus !== 200
+    ? businessStatus
+    : httpStatus || businessStatus
+}
+
 function isRequestTimeout(error) {
   return error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT'
 }
 
-function processResponseFailure(error) {
-  // 主动取消和本地 Token 过期都不是服务离线，不能污染全局连接状态。
-  if (error?.code === 'ERR_CANCELED' || error?.message === 'token expired') {
-    return error
+function reportFailure(error) {
+  if (
+    error?.code === 'ERR_CANCELED'
+    || error?.message === 'token expired'
+    || error instanceof RefreshStepUpRequiredError
+  ) {
+    return
   }
 
-  const httpStatus = Number(error.response?.status) || 0
-  const businessStatus = Number(error.response?.data?.code) || 0
-  const status = httpStatus >= 200 && httpStatus < 300 && businessStatus !== 200
-    ? businessStatus
-    : httpStatus || businessStatus
-
+  const status = failureStatus(error)
   if (isRequestTimeout(error)) {
-    // Axios 超时无法证明 Gateway 已离线，也可能只是某个下游服务响应过慢。
     reportApiConnectivity({
       status: 'degraded',
       message: '请求超时，Gateway 或下游服务响应过慢'
@@ -83,37 +96,84 @@ function processResponseFailure(error) {
       message: '当前设备无法访问服务，请检查网络连接或服务地址'
     })
   } else if (status >= 500) {
-    // 已收到 HTTP 响应说明请求链路仍然可达。即使响应体为空，
-    // 也只能判断 Gateway 或下游处理失败，不能误报 Gateway 离线。
     reportApiConnectivity({
       status: 'degraded',
       message: error.response?.data?.message || '服务暂时不可用'
     })
   } else {
-    // 4xx 和普通业务错误说明 Gateway 可达，不能误报成服务离线。
     reportApiConnectivity({ status: 'online', message: '' })
-  }
-
-  if (status === 401 && !isPublicAuthRequest(error.config)) {
-    clearSession('登录状态已过期，请重新登录')
-    redirectToLogin()
   }
 
   if (status === 403) {
     sessionStorage.setItem('authMessage', '当前账号没有权限执行该操作')
   }
-
-  return error
 }
 
-http.interceptors.request.use((config) => {
-  const token = getToken()
-  if (token) {
-    if (isTokenExpired()) {
-      clearSession('登录状态已过期，请重新登录')
-      redirectToLogin()
-      return Promise.reject(new Error('token expired'))
+function expireBrowserSession(error) {
+  clearSession(error?.response?.data?.message || '登录状态已过期，请重新登录')
+  redirectToLogin()
+}
+
+async function processResponseFailure(error) {
+  const status = failureStatus(error)
+  const config = error.config || {}
+  const protectedRequest = !isPublicAuthRequest(config)
+
+  if (status === 401 && protectedRequest && !config.wifiRetriedAfterRefresh) {
+    const failedToken = String(config.headers?.Authorization || '')
+      .replace(/^Bearer\s+/i, '')
+      || getToken()
+
+    try {
+      const session = await ensureAccessSession({
+        force: true,
+        failedToken
+      })
+      const nextConfig = {
+        ...config,
+        wifiRetriedAfterRefresh: true,
+        headers: {
+          ...config.headers,
+          Authorization: `Bearer ${session.token}`,
+          'X-Client-Instance-Id': getClientInstanceId()
+        }
+      }
+      return http.request(nextConfig)
+    } catch (refreshError) {
+      reportFailure(refreshError)
+      if (failureStatus(refreshError) === 401) {
+        expireBrowserSession(refreshError)
+      }
+      return Promise.reject(refreshError)
     }
+  }
+
+  reportFailure(error)
+  if (status === 401 && protectedRequest) {
+    expireBrowserSession(error)
+  }
+  return Promise.reject(error)
+}
+
+http.interceptors.request.use(async (config) => {
+  config.headers = config.headers || {}
+  config.headers['X-Client-Instance-Id'] = getClientInstanceId()
+
+  if (isPublicAuthRequest(config)) {
+    delete config.headers.Authorization
+    return config
+  }
+
+  let token = getToken()
+  if (token && isTokenExpired(token)) {
+    const session = await ensureAccessSession({
+      force: true,
+      failedToken: token
+    })
+    token = session.token
+  }
+
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -126,12 +186,10 @@ http.interceptors.response.use(
       reportApiConnectivity({ status: 'online', message: '' })
       return accepted
     } catch (error) {
-      return Promise.reject(processResponseFailure(error))
+      return processResponseFailure(error)
     }
   },
-  (error) => {
-    return Promise.reject(processResponseFailure(error))
-  }
+  processResponseFailure
 )
 
 export default http

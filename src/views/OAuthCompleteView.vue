@@ -9,6 +9,7 @@ import { getHomePath } from '@/utils/access'
 import { getSafeInternalRedirect } from '@/utils/navigation'
 import {
   getStoredRole,
+  getStoredTenantContext,
   getToken,
   parseTokenPayload,
   setSession
@@ -31,7 +32,7 @@ const actionLabel = ref('返回登录')
 let callbackStarted = false
 
 function destinationForRole(role) {
-  return getSafeInternalRedirect(route.query.redirect, getHomePath(role))
+  return getSafeInternalRedirect(route.query.redirect, getHomePath(role, getStoredTenantContext()))
 }
 
 function readQueryValue(value) {
@@ -129,14 +130,12 @@ async function handleCallback() {
 
       sessionStorage.removeItem('authMessage')
       clearPendingAccount()
-      setSession(result.token, {
-        username: result.username || '',
-        nickname: result.nickname || '',
-        avatar: result.avatar || '',
-        role
-      })
+      setSession({ ...result, role })
 
-      await router.replace(destinationForRole(role))
+      await router.replace(getSafeInternalRedirect(
+        route.query.redirect,
+        getHomePath(role, result.context)
+      ))
       return
     }
 
@@ -153,7 +152,7 @@ async function handleCallback() {
 
         showState('success','社交身份绑定成功',
             sameAccount ? result.message || `${provider.label} 身份已经绑定。` : '绑定已经完成，但当前浏览器登录账号发生了变化，请确认当前账号。',
-            sameAccount ? '/app/account-security' : hasSession ? destinationForRole(getStoredRole()) : '/login',
+            sameAccount ? '/app/account/security' : hasSession ? destinationForRole(getStoredRole()) : '/login',
             sameAccount ? '返回账户安全' : hasSession ? '进入当前账号' : '返回登录'
         )
         return
