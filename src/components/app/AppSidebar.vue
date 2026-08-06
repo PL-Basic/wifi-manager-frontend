@@ -12,12 +12,16 @@ const props = defineProps({
   open: {
     type: Boolean,
     default: false
+  },
+  context: {
+    type: Object,
+    default: null
   }
 })
 
 const emit = defineEmits(['close'])
 
-const groups = computed(() => getNavigationGroups(props.role))
+const groups = computed(() => getNavigationGroups(props.role, props.context))
 </script>
 
 <template>

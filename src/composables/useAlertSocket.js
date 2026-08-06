@@ -17,6 +17,12 @@ export function useAlertSocket() {
     toasts.value = toasts.value.filter((item) => item.id !== id)
   }
 
+  function clearToasts() {
+    toastTimers.forEach((timer) => window.clearTimeout(timer))
+    toastTimers.clear()
+    toasts.value = []
+  }
+
   function pushToast(payload = {}) {
     const toast = {
       id: ++toastSeed,
@@ -180,6 +186,7 @@ export function useAlertSocket() {
     connect,
     disconnect,
     retry,
-    removeToast
+    removeToast,
+    clearToasts
   }
 }

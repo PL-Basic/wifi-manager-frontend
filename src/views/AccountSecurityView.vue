@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
         <span>密码凭证</span>
         <strong>登录密码</strong>
         <p>通过当前账号已绑定的手机号或邮箱验证身份并修改密码。</p>
-        <RouterLink class="danger-button password-management-link" to="/app/change-password"><KeyRound :size="16" />修改密码</RouterLink>
+        <RouterLink class="danger-button password-management-link" to="/app/account/change-password"><KeyRound :size="16" />修改密码</RouterLink>
       </article>
       <article
         v-for="provider in oauthProviders"

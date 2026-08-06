@@ -4,7 +4,13 @@ import { useRouter } from 'vue-router'
 import StarrySky from '@/components/StarrySky.vue'
 import { resetPassword, sendVerifyCode } from '@/api/auth'
 import { getApiErrorMessage } from '@/utils/apiError'
-import { getStoredRole, getToken, onSessionChange } from '@/utils/session'
+import {
+  getStoredRole,
+  getStoredTenantContext,
+  getToken,
+  isTokenExpired,
+  onSessionChange
+} from '@/utils/session'
 import { getHomePath } from '@/utils/access'
 
 const router = useRouter()
@@ -178,9 +184,9 @@ async function handleResetPassword() {
 }
 
 function redirectIfLoggedIn() {
-  if (!getToken()) return false
+  if (!getToken() || isTokenExpired()) return false
 
-  router.replace(getHomePath(getStoredRole()))
+  router.replace(getHomePath(getStoredRole(), getStoredTenantContext()))
   return true
 }
 

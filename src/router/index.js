@@ -39,23 +39,154 @@ import {
   normalizeRole
 } from '@/utils/access'
 import {
-  clearSession,
   getStoredRole,
+  getStoredTenantContext,
   getToken,
   isTokenExpired
 } from '@/utils/session'
+import { restoreAccessSession } from '@/utils/sessionRefresh'
 import { getSafeInternalRedirect } from '@/utils/navigation'
 import { hasPendingAccount } from '@/utils/accountState'
+import {
+  isLegacyTenantWorkspacePath,
+  isTenantWorkspaceContext,
+  migrateLegacyWorkspacePath
+} from '@/utils/tenant'
 
 const ADMIN_ROLES = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
 const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
+
+const tenantWorkspaceChildren = [
+  {
+    path: '',
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/overview`
+  },
+  {
+    path: 'overview',
+    name: 'tenant-overview',
+    component: OverviewView,
+    meta: { title: '运行总览', breadcrumbs: ['总览', '运行总览'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'network',
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/network/devices`
+  },
+  {
+    path: 'network/devices',
+    name: 'tenant-network-devices',
+    component: DevicesView,
+    meta: { title: '设备节点', breadcrumbs: ['网络', '设备节点'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'network/devices/:nodeId',
+    name: 'tenant-network-device-detail',
+    component: DeviceDetailView,
+    meta: { title: '设备详情', breadcrumbs: ['网络', '设备节点', '设备详情'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'network/clients',
+    name: 'tenant-network-clients',
+    component: ClientsView,
+    meta: { title: '客户端信号', breadcrumbs: ['网络', '客户端信号'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'network/sessions',
+    name: 'tenant-network-sessions',
+    component: SessionsView,
+    meta: { title: '会话', breadcrumbs: ['网络', '会话'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'network/traffic',
+    name: 'tenant-network-traffic',
+    component: TrafficView,
+    meta: { title: '流量', breadcrumbs: ['网络', '流量'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'security',
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/security/rules`
+  },
+  {
+    path: 'security/rules',
+    name: 'tenant-security-rules',
+    component: RulesView,
+    meta: { title: '访问规则', breadcrumbs: ['安全', '访问规则'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'security/blacklist',
+    name: 'tenant-security-blacklist',
+    component: BlacklistView,
+    meta: { title: '黑名单', breadcrumbs: ['安全', '黑名单'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'security/alerts',
+    name: 'tenant-security-alerts',
+    component: AlertsView,
+    meta: { title: '告警', breadcrumbs: ['安全', '告警'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'security/audits',
+    name: 'tenant-security-audits',
+    component: AuditsView,
+    meta: { title: '审计', breadcrumbs: ['安全', '审计'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'operations',
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/operations/users`
+  },
+  {
+    path: 'operations/users',
+    name: 'tenant-operations-users',
+    component: UsersView,
+    meta: { title: '用户管理', breadcrumbs: ['运营', '用户管理'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'operations/users/:userId',
+    name: 'tenant-operations-user-detail',
+    component: UserDetailView,
+    meta: { title: '用户详情', breadcrumbs: ['运营', '用户管理', '用户详情'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'operations/approvals',
+    name: 'tenant-operations-approvals',
+    component: ApprovalsView,
+    meta: { title: '高风险审批', breadcrumbs: ['运营', '高风险审批'], roles: SUPER_ADMIN_ROLES }
+  },
+  {
+    path: 'operations/refunds',
+    name: 'tenant-operations-refunds',
+    component: RefundReviewView,
+    meta: { title: '退款审核', breadcrumbs: ['运营', '退款审核'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'insights',
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/insights/gis`
+  },
+  {
+    path: 'insights/gis',
+    name: 'tenant-insights-gis',
+    component: () => import('@/views/insights/GisView.vue'),
+    meta: { title: 'GIS 空间分析', breadcrumbs: ['洞察', 'GIS 空间分析'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'insights/analytics',
+    name: 'tenant-insights-analytics',
+    component: () => import('@/views/insights/AnalyticsView.vue'),
+    meta: { title: '运行分析', breadcrumbs: ['洞察', '运行分析'], roles: ADMIN_ROLES }
+  },
+  {
+    path: 'insights/geofences',
+    name: 'tenant-insights-geofences',
+    component: () => import('@/views/insights/GeofencesView.vue'),
+    meta: { title: '地理围栏', breadcrumbs: ['洞察', '地理围栏'], roles: ADMIN_ROLES }
+  }
+]
 
 const routes = [
   {
     path: '/',
     redirect: () => (
       getToken()
-        ? getHomePath(getStoredRole())
+        ? getHomePath(getStoredRole(), getStoredTenantContext())
         : hasPendingAccount() ? '/account-restricted' : '/login'
     )
   },
@@ -95,6 +226,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/app/t/:tenantCode',
+    component: AppShell,
+    meta: { requiresAuth: true, tenantWorkspace: true },
+    children: tenantWorkspaceChildren
+  },
+  {
     path: '/app',
     component: AppShell,
     meta: { requiresAuth: true },
@@ -102,7 +239,7 @@ const routes = [
       {
         path: '',
         name: 'app-home',
-        redirect: () => getHomePath(getStoredRole())
+        redirect: () => getHomePath(getStoredRole(), getStoredTenantContext())
       },
       {
         path: 'overview',
@@ -115,51 +252,76 @@ const routes = [
         }
       },
       {
-        path: 'profile',
+        path: 'account/profile',
         name: 'app-profile',
         component: ProfileView,
         meta: {
           title: '我的资料',
           breadcrumbs: ['个人', '我的资料'],
-          profileSection: 'profile'
+          profileSection: 'profile',
+          allowWithoutTenant: true
         }
       },
       {
-        path: 'account-security',
+        path: 'account/security',
         name: 'app-account-security',
         component: AccountSecurityView,
         meta: {
           title: '账户安全',
-          breadcrumbs: ['个人', '账户安全']
+          breadcrumbs: ['个人', '账户安全'],
+          allowWithoutTenant: true
         }
       },
       {
-        path: 'connections',
+        path: 'account/connections',
         name: 'app-connections',
         component: MyConnectionsView,
         meta: {
           title: '我的连接',
-          breadcrumbs: ['个人', '我的连接']
+          breadcrumbs: ['个人', '我的连接'],
+          allowWithoutTenant: true
         }
       },
       {
-        path: 'change-password',
+        path: 'account/change-password',
         name: 'app-change-password',
         component: ChangePasswordView,
         meta: {
           title: '修改密码',
-          breadcrumbs: ['个人', '账户安全', '修改密码']
+          breadcrumbs: ['个人', '账户安全', '修改密码'],
+          allowWithoutTenant: true
         }
       },
       {
-        path: 'location',
+        path: 'account/location',
         name: 'app-location',
         component: MyLocationView,
         meta: {
           title: '我的定位',
           breadcrumbs: ['个人', '我的定位'],
-          profileSection: 'locations'
+          profileSection: 'locations',
+          allowWithoutTenant: true
         }
+      },
+      {
+        path: 'profile',
+        redirect: '/app/account/profile'
+      },
+      {
+        path: 'account-security',
+        redirect: '/app/account/security'
+      },
+      {
+        path: 'connections',
+        redirect: '/app/account/connections'
+      },
+      {
+        path: 'change-password',
+        redirect: '/app/account/change-password'
+      },
+      {
+        path: 'location',
+        redirect: '/app/account/location'
       },
       {
         path: 'network',
@@ -369,17 +531,17 @@ const routes = [
   // 保留旧地址，避免收藏或旧标签页立即失效。
   {
     path: '/dashboard',
-    redirect: () => getHomePath(getStoredRole())
+    redirect: () => getHomePath(getStoredRole(), getStoredTenantContext())
   },
   {
     path: '/profile',
-    redirect: '/app/profile'
+    redirect: '/app/account/profile'
   },
   {
     path: '/:pathMatch(.*)*',
     redirect: () => (
       getToken()
-        ? getHomePath(getStoredRole())
+        ? getHomePath(getStoredRole(), getStoredTenantContext())
         : hasPendingAccount() ? '/account-restricted' : '/login'
     )
   }
@@ -390,46 +552,75 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to) => {
+let restorePromise = null
+
+async function restoreBrowserSession() {
+  if (getToken() && !isTokenExpired(getToken())) return 'active'
+  if (!restorePromise) {
+    restorePromise = restoreAccessSession().finally(() => {
+      restorePromise = null
+    })
+  }
+  return restorePromise
+}
+
+router.beforeEach(async (to) => {
+  let restoreState = 'active'
+  if (to.meta.requiresAuth || to.meta.publicOnly || getToken()) {
+    restoreState = await restoreBrowserSession()
+  }
+
   const token = getToken()
   const role = normalizeRole(getStoredRole())
+  const context = getStoredTenantContext()
+  const usableToken = Boolean(token && !isTokenExpired(token))
 
   if (to.meta.pendingAccountOnly) {
-    if (token) return getHomePath(role)
+    if (usableToken) return getHomePath(role, context)
     return hasPendingAccount() ? true : { name: 'login' }
   }
 
-  if (token && isTokenExpired()) {
-    clearSession('登录状态已过期，请重新登录')
-
-    // 登录页和 OAuth 回调页可以在清理旧 Token 后继续访问。
-    if (
-      to.name === 'login'
-      || to.name === 'oauth-complete'
-    ) {
-      return true
-    }
-
-    // 其他页面必须立即返回登录页，不能继续使用本次导航中的旧 token。
+  if (
+    to.meta.requiresAuth
+    && (
+      !token
+      || (!usableToken && !['unavailable', 'step-up'].includes(restoreState))
+    )
+  ) {
     return {
       name: 'login',
       query: { redirect: to.fullPath }
     }
   }
 
-  if (to.meta.requiresAuth && !token) {
-    return {
-      name: 'login',
-      query: { redirect: to.fullPath }
+  if (to.meta.publicOnly && usableToken) {
+    return getSafeInternalRedirect(to.query.redirect, getHomePath(role, context))
+  }
+
+  if (usableToken && isLegacyTenantWorkspacePath(to.path)) {
+    const migrated = migrateLegacyWorkspacePath(to.fullPath, context)
+    return migrated || getHomePath(role, context)
+  }
+
+  if (
+    usableToken
+    && to.path.startsWith('/app/platform')
+    && context?.contextType !== 'PLATFORM'
+  ) {
+    return getHomePath(role, context)
+  }
+
+  if (to.meta.tenantWorkspace) {
+    if (!isTenantWorkspaceContext(context)) {
+      return getHomePath(role, context)
+    }
+    if (String(to.params.tenantCode || '') !== String(context.tenantCode || '')) {
+      return getHomePath(role, context)
     }
   }
 
-  if (to.meta.publicOnly && token) {
-    return getSafeInternalRedirect(to.query.redirect, getHomePath(role))
-  }
-
-  if (token && !canAccessRoles(to.meta.roles, role)) {
-    return getHomePath(role)
+  if (usableToken && !canAccessRoles(to.meta.roles, role)) {
+    return getHomePath(role, context)
   }
 
   return true

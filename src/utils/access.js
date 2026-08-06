@@ -31,8 +31,16 @@ export function isAdminRole(value) {
 }
 
 // 登录、旧路径跳转和越权回退统一使用同一个首页规则。
-export function getHomePath(value) {
-    return isAdminRole(value) ? '/app/overview' : '/app/profile'
+export function getHomePath(value, context = null) {
+    if (context?.contextType === 'PLATFORM' && normalizeRole(value) === ROLE_SUPER_ADMIN) {
+        return '/app/platform/tenants'
+    }
+
+    if (context?.tenantCode && isAdminRole(value)) {
+        return `/app/t/${encodeURIComponent(String(context.tenantCode))}/overview`
+    }
+
+    return '/app/account/profile'
 }
 
 // 没有配置角色限制表示所有已登录用户都可访问。

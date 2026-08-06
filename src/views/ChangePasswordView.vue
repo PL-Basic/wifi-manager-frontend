@@ -141,7 +141,7 @@ onBeforeUnmount(() => {
         <p class="page-kicker">账户安全</p>
         <h2>修改密码</h2>
       </div>
-      <RouterLink class="secondary-button" to="/app/account-security"><ArrowLeft :size="16" />返回账户安全</RouterLink>
+      <RouterLink class="secondary-button" to="/app/account/security"><ArrowLeft :size="16" />返回账户安全</RouterLink>
     </header>
 
     <p v-if="error" class="alert error" aria-live="polite">{{ error }}</p>

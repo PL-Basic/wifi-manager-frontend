@@ -131,8 +131,8 @@ onBeforeUnmount(() => {
             <button
               type="button"
               role="menuitem"
-              :disabled="busy || !account.contacts?.length"
-              :title="account.contacts?.length ? '通过验证码切换' : '该历史账号没有可用的手机号或邮箱'"
+              :disabled="busy || !account.channels?.length"
+              :title="account.channels?.length ? '通过验证码切换' : '该历史账号没有可用的验证渠道'"
               @click="chooseAccount(account)"
             >
               <UserRoundCheck :size="17" aria-hidden="true" />
