@@ -25,7 +25,7 @@ const router = useRouter()
 
 const viewState = ref('loading')
 const title = ref('正在完成授权')
-const message = ref('正在验证 Provider 返回的信息...')
+const message = ref('正在确认第三方账号信息...')
 const actionPath = ref('/login')
 const actionLabel = ref('返回登录')
 
@@ -55,7 +55,7 @@ async function handleCallback() {
   const provider = getOAuthProvider(route.params.provider)
 
   if (!provider) {
-    showState('error', '不支持的授权来源', '当前 OAuth Provider 不在允许列表中。')
+    showState('error', '不支持的登录方式', '当前第三方登录方式不可用。')
     return
   }
 
@@ -64,12 +64,12 @@ async function handleCallback() {
   const providerError = readQueryValue(route.query.error)
 
   if (!state) {
-    showState('error', '授权信息不完整', 'OAuth 回调缺少 state，请重新发起登录。')
+    showState('error', '授权信息不完整', '第三方登录返回的信息不完整，请重新登录。')
     return
   }
 
   if (!code && !providerError) {
-    showState('error', '授权信息不完整', 'OAuth 回调缺少授权码，请重新发起登录。')
+    showState('error', '授权信息不完整', '第三方平台没有返回授权结果，请重新登录。')
     return
   }
 
@@ -81,7 +81,7 @@ async function handleCallback() {
     })
 
     if (data?.code !== 200 || !data.data) {
-      showState('error', '授权处理失败', data?.message || '后端没有返回有效的 OAuth 结果。')
+      showState('error', '授权处理失败', data?.message || '服务没有返回有效的第三方登录结果。')
       return
     }
 
@@ -95,7 +95,7 @@ async function handleCallback() {
         '授权已经处理',
         result.status === 'LOGIN_READY'
           ? '该回调已使用，安全策略不会再次签发登录凭证。'
-          : result.message || '该 OAuth 回调已经处理，无需重复提交。',
+          : result.message || '该登录请求已经处理，无需重复提交。',
         hasSession ? destinationForRole(getStoredRole()) : '/login',
         hasSession ? '进入当前账号' : '重新登录'
       )
@@ -108,7 +108,7 @@ async function handleCallback() {
         showState(
           'existing-session',
           '当前浏览器已有登录账号',
-          'OAuth 回调已完成，但不会覆盖其他标签页已经建立的登录状态。',
+          '第三方登录已经完成，但不会覆盖其他页面中已有的登录账号。',
           destinationForRole(getStoredRole()),
           '进入当前账号'
         )
@@ -122,7 +122,7 @@ async function handleCallback() {
       }
 
       if (!result.token) {
-        showState('error', '登录凭证缺失', 'OAuth 登录成功，但后端没有返回登录凭证。')
+        showState('error', '登录状态不完整', '第三方账号验证成功，但服务没有完成登录。')
         return
       }
 
@@ -167,12 +167,12 @@ async function handleCallback() {
       return
     }
 
-    showState('error', '未知授权结果', '后端返回了前端无法识别的 OAuth 状态。')
+    showState('error', '未知授权结果', '服务返回了无法识别的第三方登录状态。')
   } catch (error) {
     showState(
       'error',
-      'OAuth 处理失败',
-      getApiErrorMessage(error, 'OAuth 回调处理失败')
+      '第三方登录处理失败',
+      getApiErrorMessage(error, '第三方登录处理失败')
     )
   }
 }
@@ -193,7 +193,7 @@ onMounted(handleCallback)
 
       <section class="auth-panel auth-panel--login" aria-live="polite">
         <div class="auth-copy">
-          <p class="eyebrow">OAuth</p>
+          <p class="eyebrow">第三方账号</p>
           <h2>{{ title }}</h2>
         </div>
 

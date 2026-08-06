@@ -75,31 +75,31 @@ const tenantWorkspaceChildren = [
     path: 'network/devices',
     name: 'tenant-network-devices',
     component: DevicesView,
-    meta: { title: '设备节点', breadcrumbs: ['网络', '设备节点'], roles: ADMIN_ROLES }
+    meta: { title: '设备管理', breadcrumbs: ['网络', '设备管理'], roles: ADMIN_ROLES }
   },
   {
     path: 'network/devices/:nodeId',
     name: 'tenant-network-device-detail',
     component: DeviceDetailView,
-    meta: { title: '设备详情', breadcrumbs: ['网络', '设备节点', '设备详情'], roles: ADMIN_ROLES }
+    meta: { title: '设备详情', breadcrumbs: ['网络', '设备管理', '设备详情'], roles: ADMIN_ROLES }
   },
   {
     path: 'network/clients',
     name: 'tenant-network-clients',
     component: ClientsView,
-    meta: { title: '客户端信号', breadcrumbs: ['网络', '客户端信号'], roles: ADMIN_ROLES }
+    meta: { title: '连接信号', breadcrumbs: ['网络', '连接信号'], roles: ADMIN_ROLES }
   },
   {
     path: 'network/sessions',
     name: 'tenant-network-sessions',
     component: SessionsView,
-    meta: { title: '会话', breadcrumbs: ['网络', '会话'], roles: ADMIN_ROLES }
+    meta: { title: '连接记录', breadcrumbs: ['网络', '连接记录'], roles: ADMIN_ROLES }
   },
   {
     path: 'network/traffic',
     name: 'tenant-network-traffic',
     component: TrafficView,
-    meta: { title: '流量', breadcrumbs: ['网络', '流量'], roles: ADMIN_ROLES }
+    meta: { title: '流量记录', breadcrumbs: ['网络', '流量记录'], roles: ADMIN_ROLES }
   },
   {
     path: 'security',
@@ -127,7 +127,7 @@ const tenantWorkspaceChildren = [
     path: 'security/audits',
     name: 'tenant-security-audits',
     component: AuditsView,
-    meta: { title: '审计', breadcrumbs: ['安全', '审计'], roles: ADMIN_ROLES }
+    meta: { title: '操作记录', breadcrumbs: ['安全', '操作记录'], roles: ADMIN_ROLES }
   },
   {
     path: 'operations',
@@ -137,25 +137,25 @@ const tenantWorkspaceChildren = [
     path: 'operations/users',
     name: 'tenant-operations-users',
     component: UsersView,
-    meta: { title: '用户管理', breadcrumbs: ['运营', '用户管理'], roles: ADMIN_ROLES }
+    meta: { title: '用户管理', breadcrumbs: ['业务管理', '用户管理'], roles: ADMIN_ROLES }
   },
   {
     path: 'operations/users/:userId',
     name: 'tenant-operations-user-detail',
     component: UserDetailView,
-    meta: { title: '用户详情', breadcrumbs: ['运营', '用户管理', '用户详情'], roles: ADMIN_ROLES }
+    meta: { title: '用户详情', breadcrumbs: ['业务管理', '用户管理', '用户详情'], roles: ADMIN_ROLES }
   },
   {
     path: 'operations/approvals',
     name: 'tenant-operations-approvals',
     component: ApprovalsView,
-    meta: { title: '高风险审批', breadcrumbs: ['运营', '高风险审批'], roles: SUPER_ADMIN_ROLES }
+    meta: { title: '敏感操作审批', breadcrumbs: ['业务管理', '敏感操作审批'], roles: SUPER_ADMIN_ROLES }
   },
   {
     path: 'operations/refunds',
     name: 'tenant-operations-refunds',
     component: RefundReviewView,
-    meta: { title: '退款审核', breadcrumbs: ['运营', '退款审核'], roles: ADMIN_ROLES }
+    meta: { title: '退款审核', breadcrumbs: ['业务管理', '退款审核'], roles: ADMIN_ROLES }
   },
   {
     path: 'insights',
@@ -165,19 +165,19 @@ const tenantWorkspaceChildren = [
     path: 'insights/gis',
     name: 'tenant-insights-gis',
     component: () => import('@/views/insights/GisView.vue'),
-    meta: { title: 'GIS 空间分析', breadcrumbs: ['洞察', 'GIS 空间分析'], roles: ADMIN_ROLES }
+    meta: { title: '地图分析', breadcrumbs: ['数据分析', '地图分析'], roles: ADMIN_ROLES }
   },
   {
     path: 'insights/analytics',
     name: 'tenant-insights-analytics',
     component: () => import('@/views/insights/AnalyticsView.vue'),
-    meta: { title: '运行分析', breadcrumbs: ['洞察', '运行分析'], roles: ADMIN_ROLES }
+    meta: { title: '运行分析', breadcrumbs: ['数据分析', '运行分析'], roles: ADMIN_ROLES }
   },
   {
     path: 'insights/geofences',
     name: 'tenant-insights-geofences',
     component: () => import('@/views/insights/GeofencesView.vue'),
-    meta: { title: '地理围栏', breadcrumbs: ['洞察', '地理围栏'], roles: ADMIN_ROLES }
+    meta: { title: '区域提醒', breadcrumbs: ['数据分析', '区域提醒'], roles: ADMIN_ROLES }
   }
 ]
 
@@ -332,8 +332,8 @@ const routes = [
         name: 'app-network-devices',
         component: DevicesView,
         meta: {
-          title: '设备节点',
-          breadcrumbs: ['网络', '设备节点'],
+          title: '设备管理',
+          breadcrumbs: ['网络', '设备管理'],
           roles: ADMIN_ROLES
         }
       },
@@ -343,7 +343,7 @@ const routes = [
         component: DeviceDetailView,
         meta: {
           title: '设备详情',
-          breadcrumbs: ['网络', '设备节点', '设备详情'],
+          breadcrumbs: ['网络', '设备管理', '设备详情'],
           roles: ADMIN_ROLES
         }
       },
@@ -352,8 +352,8 @@ const routes = [
         name: 'app-network-clients',
         component: ClientsView,
         meta: {
-          title: '客户端信号',
-          breadcrumbs: ['网络', '客户端信号'],
+          title: '连接信号',
+          breadcrumbs: ['网络', '连接信号'],
           roles: ADMIN_ROLES
         }
       },
@@ -362,8 +362,8 @@ const routes = [
         name: 'app-network-sessions',
         component: SessionsView,
         meta: {
-          title: '会话',
-          breadcrumbs: ['网络', '会话'],
+          title: '连接记录',
+          breadcrumbs: ['网络', '连接记录'],
           roles: ADMIN_ROLES
         }
       },
@@ -372,8 +372,8 @@ const routes = [
         name: 'app-network-traffic',
         component: TrafficView,
         meta: {
-          title: '流量',
-          breadcrumbs: ['网络', '流量'],
+          title: '流量记录',
+          breadcrumbs: ['网络', '流量记录'],
           roles: ADMIN_ROLES
         }
       },
@@ -391,13 +391,13 @@ const routes = [
         path: 'entitlements',
         name: 'app-entitlements',
         component: EntitlementsView,
-        meta: { title: '我的权益', breadcrumbs: ['个人', '我的权益'] }
+        meta: { title: '上网服务', breadcrumbs: ['个人', '上网服务'] }
       },
       {
         path: 'purchase',
         name: 'app-purchase',
         component: PurchaseView,
-        meta: { title: '购买权益', breadcrumbs: ['个人', '购买权益'] }
+        meta: { title: '购买上网时长', breadcrumbs: ['个人', '购买上网时长'] }
       },
       {
         path: 'orders',
@@ -439,7 +439,7 @@ const routes = [
         path: 'security/audits',
         name: 'app-security-audits',
         component: AuditsView,
-        meta: { title: '审计', breadcrumbs: ['安全', '审计'], roles: ADMIN_ROLES }
+        meta: { title: '操作记录', breadcrumbs: ['安全', '操作记录'], roles: ADMIN_ROLES }
       },
       {
         path: 'operations',
@@ -449,25 +449,25 @@ const routes = [
         path: 'operations/users',
         name: 'app-operations-users',
         component: UsersView,
-        meta: { title: '用户管理', breadcrumbs: ['运营', '用户管理'], roles: ADMIN_ROLES }
+        meta: { title: '用户管理', breadcrumbs: ['业务管理', '用户管理'], roles: ADMIN_ROLES }
       },
       {
         path: 'operations/users/:userId',
         name: 'app-operations-user-detail',
         component: UserDetailView,
-        meta: { title: '用户详情', breadcrumbs: ['运营', '用户管理', '用户详情'], roles: ADMIN_ROLES }
+        meta: { title: '用户详情', breadcrumbs: ['业务管理', '用户管理', '用户详情'], roles: ADMIN_ROLES }
       },
       {
         path: 'operations/approvals',
         name: 'app-operations-approvals',
         component: ApprovalsView,
-        meta: { title: '高风险审批', breadcrumbs: ['运营', '高风险审批'], roles: SUPER_ADMIN_ROLES }
+        meta: { title: '敏感操作审批', breadcrumbs: ['业务管理', '敏感操作审批'], roles: SUPER_ADMIN_ROLES }
       },
       {
         path: 'operations/refunds',
         name: 'app-operations-refunds',
         component: RefundReviewView,
-        meta: { title: '退款审核', breadcrumbs: ['运营', '退款审核'], roles: ADMIN_ROLES }
+        meta: { title: '退款审核', breadcrumbs: ['业务管理', '退款审核'], roles: ADMIN_ROLES }
       },
       {
         path: 'platform',
@@ -477,19 +477,19 @@ const routes = [
         path: 'platform/tenants',
         name: 'app-platform-tenants',
         component: () => import('@/views/platform/TenantsView.vue'),
-        meta: { title: '平台租户', breadcrumbs: ['平台', '租户管理'], roles: SUPER_ADMIN_ROLES }
+        meta: { title: '组织管理', breadcrumbs: ['系统管理', '组织管理'], roles: SUPER_ADMIN_ROLES }
       },
       {
         path: 'platform/tenants/:tenantId',
         name: 'app-platform-tenant-detail',
         component: () => import('@/views/platform/TenantDetailView.vue'),
-        meta: { title: '租户详情', breadcrumbs: ['平台', '租户管理', '租户详情'], roles: SUPER_ADMIN_ROLES }
+        meta: { title: '组织详情', breadcrumbs: ['系统管理', '组织管理', '组织详情'], roles: SUPER_ADMIN_ROLES }
       },
       {
         path: 'platform/saas-plans',
         name: 'app-platform-saas-plans',
         component: () => import('@/views/platform/SaasPlansView.vue'),
-        meta: { title: 'SaaS 套餐', breadcrumbs: ['平台', 'SaaS 套餐'], roles: SUPER_ADMIN_ROLES }
+        meta: { title: '服务套餐', breadcrumbs: ['系统管理', '服务套餐'], roles: SUPER_ADMIN_ROLES }
       },
       {
         path: 'insights',
@@ -500,8 +500,8 @@ const routes = [
         name: 'app-insights-gis',
         component: () => import('@/views/insights/GisView.vue'),
         meta: {
-          title: 'GIS 空间分析',
-          breadcrumbs: ['洞察', 'GIS 空间分析'],
+          title: '地图分析',
+          breadcrumbs: ['数据分析', '地图分析'],
           roles: ADMIN_ROLES
         }
       },
@@ -511,7 +511,7 @@ const routes = [
         component: () => import('@/views/insights/AnalyticsView.vue'),
         meta: {
           title: '运行分析',
-          breadcrumbs: ['洞察', '运行分析'],
+          breadcrumbs: ['数据分析', '运行分析'],
           roles: ADMIN_ROLES
         }
       },
@@ -520,8 +520,8 @@ const routes = [
         name: 'app-insights-geofences',
         component: () => import('@/views/insights/GeofencesView.vue'),
         meta: {
-          title: '地理围栏',
-          breadcrumbs: ['洞察', '地理围栏'],
+          title: '区域提醒',
+          breadcrumbs: ['数据分析', '区域提醒'],
           roles: ADMIN_ROLES
         }
       }

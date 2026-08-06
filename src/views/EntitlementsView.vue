@@ -44,13 +44,13 @@ async function loadSnapshot() {
   loading.snapshot = true
   errors.snapshot = ''
   try {
-    const data = unwrap(await getMyEntitlement(), '权益加载失败')
+    const data = unwrap(await getMyEntitlement(), '上网服务加载失败')
     if (requestGate.isCurrent(version, 'snapshot')) snapshot.value = data
   } catch (cause) {
     if (requestGate.isCurrent(version, 'snapshot')) {
       errors.snapshot = cause instanceof Error && !cause.response
         ? cause.message
-        : getApiErrorMessage(cause, '权益加载失败')
+        : getApiErrorMessage(cause, '上网服务加载失败')
     }
   } finally {
     if (requestGate.isCurrent(version, 'snapshot')) loading.snapshot = false
@@ -84,7 +84,7 @@ async function loadUsage(page = usagePager.current) {
   loading.usage = true
   errors.usage = ''
   try {
-    const data = unwrap(await getMyUsageLogs({ current: page, size: usagePager.size }), '使用流水加载失败') || {}
+    const data = unwrap(await getMyUsageLogs({ current: page, size: usagePager.size }), '使用记录加载失败') || {}
     if (!requestGate.isCurrent(version, 'usage')) return
     usage.value = Array.isArray(data.records) ? data.records : []
     usagePager.current = Number(data.current) || page
@@ -94,7 +94,7 @@ async function loadUsage(page = usagePager.current) {
     if (requestGate.isCurrent(version, 'usage')) {
       errors.usage = cause instanceof Error && !cause.response
         ? cause.message
-        : getApiErrorMessage(cause, '使用流水加载失败')
+        : getApiErrorMessage(cause, '使用记录加载失败')
     }
   } finally {
     if (requestGate.isCurrent(version, 'usage')) loading.usage = false
@@ -115,19 +115,19 @@ onMounted(loadAll)
 <template>
   <section class="workspace-view operations-page">
     <header class="dashboard-header">
-      <div><p class="page-kicker">个人权益</p><h2>我的权益</h2></div>
+      <div><p class="page-kicker">个人网络服务</p><h2>上网服务</h2></div>
       <button class="secondary-button" type="button" :disabled="anyLoading" @click="loadAll">
         <RefreshCw :size="16" />刷新
       </button>
     </header>
 
     <p v-if="errors.snapshot" class="alert error">{{ errors.snapshot }}</p>
-    <StateBlock v-if="loading.snapshot && !snapshot" type="loading" title="正在加载权益" />
+    <StateBlock v-if="loading.snapshot && !snapshot" type="loading" title="正在加载上网服务" />
     <section v-if="snapshot" class="operations-grid">
       <article class="glass-panel operations-panel">
-        <h3>当前权益</h3>
+        <h3>当前可用时长</h3>
         <dl class="operations-detail">
-          <dt>模式</dt><dd>{{ snapshot.mode || '-' }}</dd>
+          <dt>服务类型</dt><dd>{{ snapshot.mode || '-' }}</dd>
           <dt>剩余时长</dt><dd>{{ duration(snapshot.remainingSeconds) }}</dd>
           <dt>状态</dt><dd>{{ Number(snapshot.status) === 1 ? '启用' : '停用' }}</dd>
         </dl>
@@ -161,12 +161,12 @@ onMounted(loadAll)
     </section>
 
     <section class="glass-panel operations-panel operations-table-wrap">
-      <h3>使用流水</h3>
+      <h3>使用记录</h3>
       <p v-if="errors.usage" class="alert error">{{ errors.usage }}</p>
-      <StateBlock v-if="loading.usage && !usage.length" type="loading" title="正在加载使用流水" />
-      <StateBlock v-else-if="!usage.length" title="暂无使用流水" />
+      <StateBlock v-if="loading.usage && !usage.length" type="loading" title="正在加载使用记录" />
+      <StateBlock v-else-if="!usage.length" title="暂无使用记录" />
       <table v-else class="operations-table">
-        <thead><tr><th>ID</th><th>请求号</th><th>Session</th><th>变化秒数</th><th>变化前</th><th>变化后</th><th>原因</th><th>时间</th></tr></thead>
+        <thead><tr><th>记录编号</th><th>操作编号</th><th>连接编号</th><th>时长变化</th><th>变化前</th><th>变化后</th><th>原因</th><th>时间</th></tr></thead>
         <tbody>
           <tr v-for="row in usage" :key="row.id">
             <td>{{ row.id }}</td><td>{{ row.requestId }}</td><td>{{ row.sessionId ?? '-' }}</td><td>{{ row.changeSeconds }}</td>

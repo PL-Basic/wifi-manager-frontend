@@ -147,7 +147,7 @@ async function startBinding(provider) {
 
     if (data?.code !== 200 || !authorizationUrl) {
       showMessage(
-        data?.message || `${provider.label} OAuth 当前未配置`
+        data?.message || `${provider.label} 绑定暂不可用`
       )
       return
     }
@@ -238,7 +238,7 @@ async function requestAccountPurge() {
   if (busy.value || !userId.value) return
   const result = await requestActionDialog({
     title: '申请彻底删除账号',
-    message: '该申请将进入高风险审批。通过后账号及关联数据会被物理删除，无法恢复。',
+    message: '该申请将进入敏感操作审批。通过后账号及相关数据会被彻底删除，无法恢复。',
     confirmLabel: '提交删除申请',
     inputLabel: '申请原因',
     inputPlaceholder: '请说明删除原因',
@@ -323,7 +323,7 @@ onBeforeUnmount(() => {
             || isProviderBound(provider.code)
             || !provider.configured
           "
-          :title="provider.configured ? `绑定 ${provider.label}` : `${provider.label} OAuth 当前未配置`"
+          :title="provider.configured ? `绑定 ${provider.label}` : `${provider.label} 绑定暂不可用`"
           @click="startBinding(provider)"
         >
           {{
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="canRequestPurge" class="glass-panel account-danger-zone">
-      <div><p class="page-kicker">高风险操作</p><h3>彻底删除账号</h3><p>提交后需由超级管理员审批，申请期间账号仍可正常使用。</p></div>
+      <div><p class="page-kicker">敏感操作</p><h3>彻底删除账号</h3><p>提交后需由超级管理员审批，申请期间账号仍可正常使用。</p></div>
       <button class="danger-button" type="button" :disabled="busy" @click="requestAccountPurge">{{ purgeSubmitting ? '提交中...' : '申请删除' }}</button>
     </section>
 
@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
       <table>
         <thead>
           <tr>
-            <th>Provider</th>
+            <th>登录方式</th>
             <th>第三方账号</th>
             <th>邮箱</th>
             <th>绑定时间</th>

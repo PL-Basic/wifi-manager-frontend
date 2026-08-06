@@ -6,7 +6,7 @@ export function savePendingAccount(auth = {}, message = '') {
     accountState: TENANT_MEMBERSHIP_PENDING,
     username: String(auth.username || ''),
     nickname: String(auth.nickname || ''),
-    message: String(message || '默认租户成员关系正在恢复'),
+    message: String(message || '默认组织的账号权限正在恢复'),
     createdAt: Date.now()
   }
   sessionStorage.setItem(PENDING_ACCOUNT_KEY, JSON.stringify(state))

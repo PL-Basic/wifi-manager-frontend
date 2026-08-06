@@ -74,9 +74,9 @@ const positioningStatus = computed(() => {
   if (!('geolocation' in navigator)) return '当前浏览器不支持定位'
   if (browserPermission.value === 'denied') return '浏览器定位权限已被拒绝'
   if (!consentEnabled.value) return '需要先开启位置共享授权'
-  if (sessionsLoading.value) return '正在读取可用 Session'
+  if (sessionsLoading.value) return '正在读取可用连接'
   if (sessionsError.value) return sessionsError.value
-  if (!sessions.value.length) return '没有可用于上报的 ACTIVE Session'
+  if (!sessions.value.length) return '当前没有可用于定位的在线连接'
   return '可以获取手机当前位置并上报'
 })
 
@@ -133,7 +133,7 @@ async function loadSessions() {
       current: 1,
       size: 100,
       status: 1
-    }), '在线 Session 加载失败') || {}
+    }), '在线连接加载失败') || {}
 
     sessions.value = Array.isArray(data.records) ? data.records : []
     if (!sessions.value.some((item) => (
@@ -144,7 +144,7 @@ async function loadSessions() {
   } catch (error) {
     sessions.value = []
     selectedSessionId.value = ''
-    sessionsError.value = getApiErrorMessage(error, '在线 Session 加载失败')
+    sessionsError.value = getApiErrorMessage(error, '在线连接加载失败')
   } finally {
     sessionsLoading.value = false
   }
@@ -242,7 +242,7 @@ async function locateAndReport() {
     return
   }
   if (!selectedSession.value) {
-    showMessage('没有可用的 ACTIVE Session。请先通过 Portal 连接设备网络，再刷新 Session。')
+    showMessage('当前没有可用的在线连接。请先连接设备提供的网络，然后重新检查。')
     return
   }
 
@@ -397,11 +397,11 @@ onBeforeUnmount(() => {
 
       <div class="location-report-actions">
         <label>
-          <span>用于上报的在线 Session</span>
+          <span>用于定位的在线连接</span>
           <select v-model="selectedSessionId" :disabled="busy || !sessions.length">
-            <option value="">{{ sessionsLoading ? '正在读取...' : sessions.length ? '请选择 Session' : '没有 ACTIVE Session' }}</option>
+            <option value="">{{ sessionsLoading ? '正在读取...' : sessions.length ? '请选择连接' : '没有在线连接' }}</option>
             <option v-for="item in sessions" :key="item.sessionId" :value="item.sessionId">
-              #{{ item.sessionId }} · {{ item.mac }} · 节点 {{ item.nodeId }}
+              #{{ item.sessionId }} · {{ item.mac }} · 设备 {{ item.nodeId }}
             </option>
           </select>
         </label>
@@ -420,10 +420,10 @@ onBeforeUnmount(() => {
       <div class="table-summary"><strong>{{ total }}</strong><span>条我的定位记录</span></div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Session</th><th>MAC</th><th>节点</th><th>纬度</th><th>经度</th><th>精度</th><th>来源</th><th>上报时间</th></tr></thead>
+          <thead><tr><th>连接编号</th><th>MAC</th><th>设备</th><th>纬度</th><th>经度</th><th>精度</th><th>来源</th><th>上报时间</th></tr></thead>
           <tbody>
             <tr v-if="locationLoading"><td colspan="8"><StateBlock type="loading" title="正在加载" text="正在同步你的定位记录" /></td></tr>
-            <tr v-else-if="locations.length === 0"><td colspan="8"><StateBlock title="暂无定位" text="选择 ACTIVE Session 并点击“定位并上报”后会生成真实记录" /></td></tr>
+            <tr v-else-if="locations.length === 0"><td colspan="8"><StateBlock title="暂无定位" text="选择在线连接并点击“定位并上报”后会生成记录" /></td></tr>
             <template v-else>
               <tr v-for="item in locations" :key="item.id">
                 <td>{{ item.sessionId || '-' }}</td><td>{{ item.mac || '-' }}</td><td>{{ item.nodeId || '-' }}</td>

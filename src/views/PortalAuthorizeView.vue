@@ -60,7 +60,7 @@ const progressSteps = computed(() => [
   { label: '账号身份', text: `${getStoredDisplayName() || '当前账号'} 已登录`, state: 'success' },
   {
     label: '认证请求',
-    text: status.value ? `Session ${status.value.sessionId} 已受理` : '等待提交接入请求',
+    text: status.value ? `连接申请 ${status.value.sessionId} 已提交` : '等待提交联网申请',
     state: status.value ? 'success' : submitting.value ? 'active' : 'idle'
   },
   {
@@ -152,7 +152,7 @@ async function switchAccount() {
     await revokeActivePortalSession(status.value?.sessionId)
     stopPolling()
     status.value = null
-    clearSession('当前 Portal 账号已退出，请登录要接入网络的账号', true, 'success')
+    clearSession('当前网络接入账号已退出，请登录要使用网络的账号', true, 'success')
     await router.replace({ name: 'login', query: { redirect } })
   } catch (cause) {
     const info = getApiErrorInfo(cause, '当前设备的网络认证结束失败，请重试')
@@ -176,7 +176,7 @@ async function submit() {
   stopPolling()
 
   try {
-    const data = unwrap(await authorizePortal({ ...form }), 'Portal 认证请求失败')
+    const data = unwrap(await authorizePortal({ ...form }), '网络接入请求失败')
     status.value = data
     pollCount.value = 0
     replaceSessionQuery(data.sessionId)
@@ -192,7 +192,7 @@ async function submit() {
       schedulePoll(900)
     }
   } catch (cause) {
-    const info = getApiErrorInfo(cause, 'Portal 认证请求失败')
+    const info = getApiErrorInfo(cause, '网络接入请求失败')
     error.value = info.message
     errorType.value = info.type
   } finally {
@@ -254,7 +254,7 @@ onBeforeUnmount(() => {
     <StarrySky />
     <main class="portal-shell">
       <header class="portal-brand">
-        <div><p class="page-kicker">Wifi Manager Portal</p><h1>{{ status?.hotspotName || 'WiFi 网络认证' }}</h1></div>
+        <div><p class="page-kicker">Wifi Manager 网络接入</p><h1>{{ status?.hotspotName || 'Wi-Fi 网络登录' }}</h1></div>
         <button class="portal-account" type="button" title="结束当前网络认证并切换账号" aria-label="结束当前网络认证并切换账号" :disabled="switchingAccount" @click="switchAccount">
           <LogIn :size="16" />{{ getStoredDisplayName() }}
         </button>
@@ -271,8 +271,8 @@ onBeforeUnmount(() => {
 
         <section class="portal-context" aria-label="接入设备信息">
           <div><span>热点设备</span><strong>{{ form.deviceCode || '-' }}</strong></div>
-          <div><span>客户端 MAC</span><strong>{{ form.mac || '-' }}</strong></div>
-          <div><span>客户端 IP</span><strong>{{ form.ip || '-' }}</strong></div>
+          <div><span>当前设备 MAC</span><strong>{{ form.mac || '-' }}</strong></div>
+          <div><span>当前设备 IP</span><strong>{{ form.ip || '-' }}</strong></div>
         </section>
 
         <section class="portal-progress" aria-label="认证进度">
@@ -284,11 +284,11 @@ onBeforeUnmount(() => {
 
         <label v-if="canForceReplace" class="portal-force">
           <input v-model="form.forceReplaceOldest" type="checkbox" />
-          <span>连接数已达到上限，允许结束最旧的在线 Session 后重试</span>
+          <span>在线连接数已达到上限，可以结束最早的连接后重试</span>
         </label>
 
         <dl v-if="status" class="operations-detail portal-status-detail">
-          <dt>Session ID</dt><dd>{{ status.sessionId }}</dd>
+          <dt>申请编号</dt><dd>{{ status.sessionId }}</dd>
           <dt>授权模式</dt><dd>{{ status.authorizationMode || '-' }}</dd>
           <dt>剩余时长</dt><dd>{{ formatDuration(status.remainingSeconds) }}</dd>
           <dt>订阅结束</dt><dd>{{ formatDateTime(status.subscriptionEndTime) }}</dd>

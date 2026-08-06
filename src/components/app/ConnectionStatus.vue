@@ -12,20 +12,20 @@ const props = defineProps({
 const emit = defineEmits(['retry-socket', 'retry-api'])
 
 const socketLabels = {
-  connecting: '告警连接中',
-  connected: '告警已连接',
-  reconnecting: '告警重连中',
-  disconnected: '告警已断开',
-  idle: '当前账号不使用告警通道'
+  connecting: '正在连接实时提醒',
+  connected: '实时提醒正常',
+  reconnecting: '正在恢复实时提醒',
+  disconnected: '实时提醒已断开',
+  idle: '当前账号无需接收实时提醒'
 }
 
 const summary = computed(() => {
   if (props.apiStatus === 'unreachable') {
-    return { label: '服务不可达', tone: 'unreachable' }
+    return { label: '无法连接服务', tone: 'unreachable' }
   }
 
   if (props.apiStatus === 'degraded') {
-    return { label: '服务降级', tone: 'degraded' }
+    return { label: '部分功能暂不可用', tone: 'degraded' }
   }
 
   if (props.apiStatus === 'unknown') {
@@ -33,15 +33,15 @@ const summary = computed(() => {
   }
 
   if (props.socketStatus === 'disconnected') {
-    return { label: '告警通道断开', tone: 'disconnected' }
+    return { label: '实时提醒已断开', tone: 'disconnected' }
   }
 
   if (props.socketStatus === 'reconnecting') {
-    return { label: '告警通道重连中', tone: 'reconnecting' }
+    return { label: '正在恢复实时提醒', tone: 'reconnecting' }
   }
 
   if (props.socketStatus === 'connecting') {
-    return { label: '告警通道连接中', tone: 'connecting' }
+    return { label: '正在连接实时提醒', tone: 'connecting' }
   }
 
   return { label: '连接正常', tone: 'connected' }
@@ -51,12 +51,12 @@ const detail = computed(() => {
   const apiText = props.apiStatus === 'unreachable'
     ? (props.apiMessage || '当前设备无法访问服务')
     : props.apiStatus === 'degraded'
-      ? (props.apiMessage || '下游服务暂时不可用')
+      ? (props.apiMessage || '部分功能暂时不可用')
       : props.apiStatus === 'online'
-        ? 'API 正常'
-        : 'API 状态等待确认'
+        ? '主要功能正常'
+        : '正在确认服务状态'
 
-  const socketText = socketLabels[props.socketStatus] || '告警连接状态未知'
+  const socketText = socketLabels[props.socketStatus] || '实时提醒状态未知'
   const attemptText = props.socketStatus === 'reconnecting' && props.socketAttempt
     ? `，第 ${props.socketAttempt} 次重试`
     : ''
@@ -73,9 +73,9 @@ const canRetrySocket = computed(() => (
 ))
 
 const retryTitle = computed(() => {
-  if (canRetryApi.value && canRetrySocket.value) return '重新检查服务并重连告警通道'
+  if (canRetryApi.value && canRetrySocket.value) return '重新检查服务并恢复实时提醒'
   if (canRetryApi.value) return '重新检查服务连接'
-  return '立即重连告警 WebSocket'
+  return '立即恢复实时提醒'
 })
 
 function retry() {

@@ -59,20 +59,20 @@ const statusInfo = computed(() => (
 
 const confirmTitle = computed(() => {
   if (confirmAction.value === 'delete') return '确认退役设备'
-  if (confirmAction.value === 'kick') return '确认踢出客户端'
+  if (confirmAction.value === 'kick') return '确认断开联网设备'
   return '确认恢复设备'
 })
 
 const confirmText = computed(() => {
   if (confirmAction.value === 'delete') {
-    return '退役后设备会从正常设备列表中隐藏，只有已知 nodeId 才能恢复。'
+    return '停用后设备会从正常设备列表中隐藏，仍可通过设备详情恢复。'
   }
 
   if (confirmAction.value === 'kick') {
-    return '该操作会向设备发送踢出命令。请求受理不代表固件已经执行成功。'
+    return '该操作会通知网络设备断开当前联网设备，提交后仍需等待执行结果。'
   }
 
-  return '确认恢复这个设备节点？'
+  return '确认恢复这个设备？'
 })
 
 function formatTime(value) {
@@ -285,18 +285,18 @@ async function executeConfirm() {
           detail.value.deviceCode,
           reason ? { reason } : undefined
         ),
-        '踢出客户端'
+        '断开联网设备'
       )
 
       if (!data?.requestId) {
-        throw new Error('后端未返回设备命令 requestId')
+        throw new Error('服务没有返回此次操作的编号')
       }
 
       commandPanelRef.value?.trackRequest(data.requestId)
 
       setActionMessage(
         'success',
-        `踢出请求已受理，requestId：${data.requestId}。固件执行终态将在命令工作区查看。`
+        `断开请求已提交，操作编号：${data.requestId}。可在“设备操作”中查看执行结果。`
       )
 
       kickReason.value = ''
@@ -354,7 +354,7 @@ watch(
           @click="openClients"
         >
           <Radio :size="16" aria-hidden="true" />
-          客户端信号
+          连接信号
         </button>
         <button
           class="secondary-button"
@@ -399,7 +399,7 @@ watch(
       v-if="loading"
       type="loading"
       title="正在加载设备详情"
-      text="正在同步真实设备节点数据"
+      text="正在同步设备数据"
     />
 
     <p v-else-if="pageError" class="alert error">
@@ -462,12 +462,12 @@ watch(
       <section v-if="activeSection === 'overview'" class="device-detail-grid">
         <article class="glass-panel detail-panel">
           <header>
-            <p class="page-kicker">节点信息</p>
+            <p class="page-kicker">设备信息</p>
             <h3>基础资料</h3>
           </header>
 
           <dl class="detail-list">
-            <dt>节点 ID</dt>
+            <dt>设备编号</dt>
             <dd>{{ detail.nodeId ?? '-' }}</dd>
 
             <dt>设备编码</dt>
@@ -482,7 +482,7 @@ watch(
             <dt>IP 地址</dt>
             <dd>{{ detail.ip || '-' }}</dd>
 
-            <dt>固件版本</dt>
+            <dt>设备软件版本</dt>
             <dd>{{ detail.firmwareVersion || '-' }}</dd>
 
             <dt>WiFi 状态</dt>
@@ -497,7 +497,7 @@ watch(
           </header>
 
           <dl class="detail-list">
-            <dt>在线客户端</dt>
+            <dt>在线联网设备</dt>
             <dd>{{ detail.currentClients ?? '-' }}</dd>
 
             <dt>最大容量</dt>
@@ -527,7 +527,7 @@ watch(
         <section v-if="!retired" class="glass-panel device-command-panel">
           <header>
             <p class="page-kicker">设备操作</p>
-            <h3>踢出客户端</h3>
+            <h3>断开联网设备</h3>
           </header>
 
           <div class="device-command-form">
@@ -549,7 +549,7 @@ watch(
               @click="requestKick"
             >
               <UserX :size="16" aria-hidden="true" />
-              踢出客户端
+              断开联网设备
             </button>
           </div>
         </section>
@@ -595,7 +595,7 @@ watch(
       >
         <header class="modal-header">
           <div>
-            <p class="page-kicker">高风险操作</p>
+            <p class="page-kicker">敏感操作</p>
             <h3>{{ confirmTitle }}</h3>
           </div>
         </header>

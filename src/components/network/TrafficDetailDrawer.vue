@@ -26,9 +26,9 @@ function formatBytes(value) {
   <AppDrawer v-if="record" :open="open" :title="`记录 ${record.id}`" kicker="流量详情" width="600px" @close="emit('close')">
         <dl class="traffic-detail-list">
           <dt>事件 ID</dt><dd>{{ record.eventId || '-' }}</dd>
-          <dt>节点 ID</dt><dd>{{ record.nodeId ?? '-' }}</dd>
+          <dt>设备编号</dt><dd>{{ record.nodeId ?? '-' }}</dd>
           <dt>设备编码</dt><dd>{{ record.deviceCode || '-' }}</dd>
-          <dt>Session ID</dt><dd>{{ record.sessionId ?? '-' }}</dd>
+          <dt>连接编号</dt><dd>{{ record.sessionId ?? '-' }}</dd>
           <dt>MAC</dt><dd>{{ record.mac || '-' }}</dd>
           <dt>目标 IP</dt><dd>{{ record.dstIp || '-' }}</dd>
           <dt>目标端口</dt><dd>{{ record.dstPort ?? '-' }}</dd>

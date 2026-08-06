@@ -19,8 +19,8 @@ export function formatDateTime(value) {
 }
 
 export function entitlementModeLabel(value) {
-  if (value === 'DURATION') return '时长权益'
-  if (value === 'SUBSCRIPTION') return '订阅权益'
+  if (value === 'DURATION') return '固定上网时长'
+  if (value === 'SUBSCRIPTION') return '按月上网服务'
   return value || '-'
 }
 

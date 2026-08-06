@@ -281,12 +281,12 @@ onMounted(runSearch)
       </label>
 
       <label>
-        <span>Session ID</span>
+        <span>连接编号</span>
         <input
           v-model="filters.sessionId"
           type="number"
           min="1"
-          placeholder="Session ID"
+          placeholder="连接编号"
         />
       </label>
 
@@ -459,7 +459,7 @@ onMounted(runSearch)
           <tr>
             <th>ID</th>
             <th>设备</th>
-            <th>Session</th>
+            <th>连接编号</th>
             <th>MAC</th>
             <th>目标</th>
             <th>SNI</th>

@@ -349,7 +349,7 @@ async function handleOAuthLogin(provider) {
     if (data?.code !== 200 || !authorizationUrl) {
       showError(
         data?.message
-        || `${provider.label} OAuth 当前未配置`
+        || `${provider.label} 登录暂不可用`
       )
       return
     }
@@ -365,7 +365,7 @@ async function handleOAuthLogin(provider) {
     showError(
       getApiErrorMessage(
         error,
-        `${provider.label} OAuth 当前未配置`
+        `${provider.label} 登录暂不可用`
       )
     )
   } finally {
@@ -560,8 +560,8 @@ onBeforeUnmount(() => {
                 || oauthProvidersLoading
                 || !provider.configured
               "
-              :title="provider.configured ? `${provider.label} 登录` : `${provider.label} OAuth 当前未配置`"
-              :aria-label="provider.configured ? `${provider.label} 登录` : `${provider.label} OAuth 当前未配置`"
+              :title="provider.configured ? `${provider.label} 登录` : `${provider.label} 登录暂不可用`"
+              :aria-label="provider.configured ? `${provider.label} 登录` : `${provider.label} 登录暂不可用`"
               @click="handleOAuthLogin(provider)"
             >
               <img :src="provider.logo" alt="" aria-hidden="true" />

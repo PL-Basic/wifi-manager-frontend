@@ -31,13 +31,13 @@ const isSuperAdmin = computed(() => props.role === ROLE_SUPER_ADMIN)
 const isPlatform = computed(() => props.context?.contextType === CONTEXT_PLATFORM)
 const isManaged = computed(() => props.context?.contextType === CONTEXT_PLATFORM_TENANT)
 const contextLabel = computed(() => {
-  if (isPlatform.value) return '平台工作区'
-  return props.context?.tenantName || props.context?.tenantCode || '租户工作区'
+  if (isPlatform.value) return '系统管理'
+  return props.context?.tenantName || props.context?.tenantCode || '组织工作区'
 })
 const contextMeta = computed(() => {
-  if (isPlatform.value) return '平台上下文'
+  if (isPlatform.value) return '管理所有组织'
 
-  const mode = isManaged.value ? '平台代管' : '当前租户'
+  const mode = isManaged.value ? '临时管理' : '当前组织'
   return props.context?.tenantCode
     ? `${mode} · ${props.context.tenantCode}`
     : mode
@@ -66,7 +66,7 @@ async function loadTenants() {
       : (Array.isArray(data) ? data : [])
     loaded.value = true
   } catch (cause) {
-    error.value = getApiErrorMessage(cause, '租户列表加载失败')
+    error.value = getApiErrorMessage(cause, '组织列表加载失败')
     loaded.value = true
   } finally {
     loading.value = false
@@ -100,11 +100,11 @@ function choose(tenant) {
 function submitManagedContext() {
   const normalized = reason.value.trim()
   if (!normalized) {
-    reasonError.value = '请输入进入租户的原因'
+    reasonError.value = '请输入此次管理操作的原因'
     return
   }
   if (normalized.length > 255) {
-    reasonError.value = '进入原因不能超过 255 个字符'
+    reasonError.value = '操作原因不能超过 255 个字符'
     return
   }
   emit('enter-platform-tenant', { tenant: managedTarget.value, reason: normalized })
@@ -162,14 +162,14 @@ onBeforeUnmount(() => {
     <div v-if="open" class="tenant-switcher__menu" role="menu">
       <header><strong>切换工作区</strong><button class="icon-button" type="button" title="关闭" aria-label="关闭" @click="open = false"><X :size="16" /></button></header>
       <p v-if="error" class="tenant-switcher__error">{{ error }}</p>
-      <p v-else-if="loading" class="tenant-switcher__state">正在加载租户...</p>
-      <p v-else-if="loaded && !tenants.length" class="tenant-switcher__state">没有其他可用租户</p>
+      <p v-else-if="loading" class="tenant-switcher__state">正在加载组织...</p>
+      <p v-else-if="loaded && !tenants.length" class="tenant-switcher__state">没有其他可用组织</p>
       <button v-for="tenant in tenants" :key="tenant.tenantId" type="button" role="menuitem" :disabled="busy || isTenantUnavailable(tenant) || String(tenant.tenantId) === String(context?.tenantId)" @click="choose(tenant)">
         <Building2 :size="16" /><span><strong>{{ tenant.name || tenant.tenantName }}</strong><small>{{ tenant.tenantCode }}</small></span>
         <Check v-if="String(tenant.tenantId) === String(context?.tenantId)" :size="15" />
       </button>
       <button v-if="isManaged" class="tenant-switcher__return" type="button" role="menuitem" :disabled="busy" @click="open = false; emit('return-platform')">
-        <RotateCcw :size="16" /><span><strong>返回平台工作区</strong><small>结束当前租户代管上下文</small></span>
+        <RotateCcw :size="16" /><span><strong>返回系统管理</strong><small>退出当前组织的临时管理状态</small></span>
       </button>
     </div>
   </div>
@@ -177,11 +177,11 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="managedTarget" class="tenant-reason-backdrop" @click.self="closeReasonDialog">
       <section class="tenant-reason-dialog" role="dialog" aria-modal="true" aria-labelledby="tenant-reason-title">
-        <header><div><p>平台代管</p><h3 id="tenant-reason-title">进入 {{ managedTarget.name }}</h3></div><button class="icon-button" type="button" :disabled="busy" title="关闭" aria-label="关闭" @click="closeReasonDialog"><X :size="18" /></button></header>
-        <p>该操作会写入审计，并让所有标签页切换到目标租户。</p>
+        <header><div><p>临时管理组织</p><h3 id="tenant-reason-title">管理 {{ managedTarget.name }}</h3></div><button class="icon-button" type="button" :disabled="busy" title="关闭" aria-label="关闭" @click="closeReasonDialog"><X :size="18" /></button></header>
+        <p>系统会记录此次操作，当前浏览器中的所有页面也会切换到该组织。</p>
         <p v-if="reasonError" class="alert error">{{ reasonError }}</p>
-        <label><span>进入原因</span><textarea v-model="reason" maxlength="255" rows="3" :disabled="busy" placeholder="说明本次代管操作目的"></textarea></label>
-        <footer><button class="secondary-button" type="button" :disabled="busy" @click="closeReasonDialog">取消</button><button type="button" :disabled="busy" @click="submitManagedContext">{{ busy ? '正在切换...' : '确认进入' }}</button></footer>
+        <label><span>操作原因</span><textarea v-model="reason" maxlength="255" rows="3" :disabled="busy" placeholder="简要说明为什么需要管理该组织"></textarea></label>
+        <footer><button class="secondary-button" type="button" :disabled="busy" @click="closeReasonDialog">取消</button><button type="button" :disabled="busy" @click="submitManagedContext">{{ busy ? '正在切换...' : '开始管理' }}</button></footer>
       </section>
     </div>
   </Teleport>

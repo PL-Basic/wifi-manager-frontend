@@ -79,7 +79,7 @@ async function loadCommands(trackRevoke = false) {
         size: 20,
         sessionId: current.value.sessionId
       }),
-      'Session 命令查询失败'
+      '设备执行记录查询失败'
     )
 
     if (version !== drawerVersion) return
@@ -97,13 +97,13 @@ async function loadCommands(trackRevoke = false) {
         if (isCommandTerminal(record.status)) {
           clearPolling()
           messageType.value = record.status === 2 ? 'success' : 'error'
-          message.value = `撤销命令 ${record.requestId}：${resolveCommandStatus(record.status).label}`
+          message.value = `断开操作（${record.requestId}）：${resolveCommandStatus(record.status).label}`
         }
       }
     }
   } catch (error) {
     if (version !== drawerVersion) return
-    commandError.value = getApiErrorMessage(error, 'Session 命令查询失败')
+    commandError.value = getApiErrorMessage(error, '设备执行记录查询失败')
   } finally {
     if (version === drawerVersion) commandLoading.value = false
   }
@@ -117,7 +117,7 @@ async function pollRevokeCommand() {
   if (pollCount >= 20 && !isCommandTerminal(trackedCommand.value?.status)) {
     clearPolling()
     messageType.value = 'error'
-    message.value = 'Session 已关闭，但设备命令暂未返回终态，请手动刷新命令记录'
+    message.value = '连接已关闭，但设备还没有返回最终结果，请稍后刷新执行记录'
   }
 }
 
@@ -133,9 +133,9 @@ async function executeRevoke() {
   if (!current.value || Number(current.value.status) === 0 || busy.value) return
 
   if (!await confirmAction({
-    title: '确认注销 Session',
-    message: `将向设备提交 Session ${current.value.sessionId} 的注销命令。请求受理不代表固件已经执行成功。`,
-    confirmLabel: '提交注销',
+    title: '确认断开连接',
+    message: `确定要断开编号为 ${current.value.sessionId} 的连接吗？提交后仍需等待设备确认执行结果。`,
+    confirmLabel: '确认断开',
     tone: 'danger'
   })) {
     return
@@ -150,7 +150,7 @@ async function executeRevoke() {
   try {
     const data = readData(
       await revokeSession(current.value.sessionId),
-      'Session 注销失败'
+      '断开连接失败'
     )
 
     current.value = { ...current.value, ...data }
@@ -158,18 +158,18 @@ async function executeRevoke() {
 
     if (previousStatus === 3) {
       messageType.value = 'success'
-      message.value = 'Session 已关闭；等待替换状态未向固件下发撤销命令'
+      message.value = '连接已关闭；该连接正在被替换，无需再向设备发送断开指令'
       await loadCommands()
     } else {
       messageType.value = 'success'
-      message.value = 'Session 注销请求已受理，正在查询固件执行结果'
+      message.value = '断开请求已提交，正在等待设备返回执行结果'
       startPolling()
     }
   } catch (error) {
     messageType.value = 'error'
     message.value = error instanceof Error && !error.response
       ? error.message
-      : getApiErrorMessage(error, 'Session 注销失败')
+      : getApiErrorMessage(error, '断开连接失败')
   } finally {
     busy.value = false
   }
@@ -202,18 +202,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <AppDrawer v-if="current" :open="open" :title="`Session ${current.sessionId}`" kicker="Session 详情" width="680px" :close-disabled="busy" @close="closeDrawer">
+  <AppDrawer v-if="current" :open="open" :title="`连接 ${current.sessionId}`" kicker="连接详情" width="680px" :close-disabled="busy" @close="closeDrawer">
         <span :class="['status-pill', `status-pill--${sessionStatus.tone}`]">
           {{ sessionStatus.label }}
         </span>
 
         <dl class="session-detail-list">
-          <dt>用户 ID</dt><dd>{{ current.userId ?? '-' }}</dd>
-          <dt>节点 ID</dt><dd>{{ current.nodeId ?? '-' }}</dd>
+          <dt>用户编号</dt><dd>{{ current.userId ?? '-' }}</dd>
+          <dt>设备编号</dt><dd>{{ current.nodeId ?? '-' }}</dd>
           <dt>MAC</dt><dd>{{ current.mac || '-' }}</dd>
           <dt>IP</dt><dd>{{ current.ip || '-' }}</dd>
           <dt>设备信息</dt><dd>{{ current.deviceInfo || '-' }}</dd>
-          <dt>替换的 Session</dt><dd>{{ current.replacedSessionId ?? '-' }}</dd>
+          <dt>替换的连接编号</dt><dd>{{ current.replacedSessionId ?? '-' }}</dd>
           <dt>上行流量</dt><dd>{{ formatBytes(current.bytesUp) }}</dd>
           <dt>下行流量</dt><dd>{{ formatBytes(current.bytesDown) }}</dd>
           <dt>登录时间</dt><dd>{{ formatTime(current.loginTime) }}</dd>
@@ -227,13 +227,13 @@ onBeforeUnmount(() => {
           :disabled="busy || Number(current.status) === 0"
           @click="executeRevoke"
         >
-          {{ busy ? '注销中...' : '注销 Session' }}
+          {{ busy ? '正在断开...' : '断开连接' }}
         </button>
 
         <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
 
         <div class="session-command-header">
-          <h4>关联设备命令</h4>
+          <h4>设备执行记录</h4>
           <button class="secondary-button" type="button" :disabled="commandLoading" @click="loadCommands(false)">
             <RefreshCw :size="14" />
             刷新
@@ -245,13 +245,13 @@ onBeforeUnmount(() => {
         <StateBlock
           v-if="commandLoading && !commandRows.length"
           type="loading"
-          title="正在查询设备命令"
+          title="正在查询设备执行记录"
         />
 
         <StateBlock
           v-else-if="!commandError && !commandRows.length"
-          title="暂无关联命令"
-          text="部分未真正下发到固件的 Session 不会产生撤销命令"
+          title="暂无设备执行记录"
+          text="部分无需设备处理的连接不会产生执行记录"
         />
 
         <div v-else class="session-command-list">

@@ -21,17 +21,17 @@ function returnToLogin() {
     <main class="restricted-account-layout">
       <section class="restricted-account-status" aria-labelledby="restricted-title">
         <div class="restricted-account-mark"><Clock3 :size="28" aria-hidden="true" /></div>
-        <p class="eyebrow">ACCOUNT RECOVERY</p>
-        <h1 id="restricted-title">账号正在恢复访问</h1>
-        <p class="restricted-account-lead">{{ displayName }} 的登录身份已经验证，但默认租户成员关系尚未完成，因此系统没有签发访问令牌。</p>
+        <p class="eyebrow">账号状态</p>
+        <h1 id="restricted-title">账号权限正在恢复</h1>
+        <p class="restricted-account-lead">{{ displayName }} 的身份已经验证，但默认组织的权限资料尚未恢复完成，目前暂时不能进入管理页面。</p>
 
         <dl class="restricted-account-facts">
-          <div><dt>账号状态</dt><dd>租户成员关系待恢复</dd></div>
-          <div><dt>登录凭证</dt><dd>未签发</dd></div>
-          <div><dt>安全策略</dt><dd>恢复完成前禁止进入业务页面</dd></div>
+          <div><dt>当前状态</dt><dd>正在恢复组织权限</dd></div>
+          <div><dt>可以登录</dt><dd>暂时不可以</dd></div>
+          <div><dt>下一步</dt><dd>稍后重新登录检查状态</dd></div>
         </dl>
 
-        <div class="restricted-account-note"><ShieldCheck :size="18" aria-hidden="true" /><p>{{ account?.message || '默认租户成员关系正在恢复' }}</p></div>
+        <div class="restricted-account-note"><ShieldCheck :size="18" aria-hidden="true" /><p>{{ account?.message || '默认组织的账号权限正在恢复' }}</p></div>
         <button type="button" @click="returnToLogin">重新登录检查状态<ArrowRight :size="17" /></button>
       </section>
     </main>

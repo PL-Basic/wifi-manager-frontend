@@ -25,10 +25,10 @@ const router = useRouter()
 const requestGate = useRequestGate()
 
 const MODES = [
-  { key: 'trajectory', label: '轨迹', title: 'Session 轨迹' },
+  { key: 'trajectory', label: '移动轨迹', title: '连接期间的移动轨迹' },
   { key: 'stays', label: '停留点', title: '停留点分析' },
   { key: 'heatmap', label: '热力图', title: '位置热力网格' },
-  { key: 'coverage', label: '节点覆盖', title: '节点覆盖观测' }
+  { key: 'coverage', label: '设备覆盖', title: '设备覆盖范围' }
 ]
 
 function datetimeLocal(date) {
@@ -224,7 +224,7 @@ function validate(mode, form) {
   if (rangeError) return rangeError
 
   if (mode !== 'heatmap') {
-    const sessionError = validatePositiveId(form.sessionId, 'Session ID')
+    const sessionError = validatePositiveId(form.sessionId, '连接编号')
     if (sessionError) return sessionError
   }
 
@@ -242,7 +242,7 @@ function validate(mode, form) {
   }
 
   if (mode === 'heatmap') {
-    for (const [key, label] of [['userId', '用户 ID'], ['sessionId', 'Session ID'], ['nodeId', '节点 ID']]) {
+    for (const [key, label] of [['userId', '用户编号'], ['sessionId', '连接编号'], ['nodeId', '设备编号']]) {
       const idError = validateOptionalId(form[key], label)
       if (idError) return idError
     }
@@ -254,7 +254,7 @@ function validate(mode, form) {
         && !idValue(form.sessionId)
         && !idValue(form.nodeId)
         && !normalizedMac) {
-      return '用户 ID、Session ID、节点 ID 或 MAC 至少填写一项'
+      return '用户编号、连接编号、设备编号或 MAC 至少填写一项'
     }
     return validateInteger(form.gridSizeMeters, 10, 1000, '网格尺寸')
   }
@@ -423,8 +423,8 @@ watch(
   <section class="workspace-view insights-page">
     <header class="dashboard-header">
       <div>
-        <p class="page-kicker">洞察工作区</p>
-        <h2>GIS 空间分析</h2>
+        <p class="page-kicker">数据分析</p>
+        <h2>地图分析</h2>
       </div>
       <button
         class="secondary-button"
@@ -437,7 +437,7 @@ watch(
       </button>
     </header>
 
-    <nav class="insights-segments" aria-label="GIS 分析类型">
+    <nav class="insights-segments" aria-label="地图分析类型">
       <button
         v-for="mode in MODES"
         :key="mode.key"
@@ -451,14 +451,14 @@ watch(
 
     <form class="glass-toolbar insights-filter-grid" @submit.prevent="runQuery">
       <label v-if="activeMode !== 'heatmap'">
-        <span>Session ID</span>
+        <span>连接编号</span>
         <input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" required />
       </label>
 
       <template v-if="activeMode === 'heatmap'">
         <label><span>用户 ID</span><input v-model="activeForm.userId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
-        <label><span>Session ID</span><input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
-        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>连接编号</span><input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>设备编号</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>MAC</span><input v-model="activeForm.mac" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" /></label>
       </template>
 
@@ -574,8 +574,8 @@ watch(
     />
     <StateBlock
       v-else-if="!activeState.loading"
-      title="等待 GIS 查询"
-      text="填写真实 Session、时间或设备筛选条件后开始分析"
+      title="等待查询"
+      text="填写连接编号、时间或设备条件后开始分析"
     />
   </section>
 </template>

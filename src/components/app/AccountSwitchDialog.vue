@@ -104,10 +104,10 @@ onBeforeUnmount(() => {
     <div v-if="open" class="account-switch-backdrop" @click.self="close">
       <section class="account-switch-dialog" role="dialog" aria-modal="true" aria-labelledby="account-switch-title">
         <header><div><p>身份验证</p><h3 id="account-switch-title">切换到 {{ account?.nickname || account?.username }}</h3></div><button class="icon-button" type="button" :disabled="busy" title="关闭" aria-label="关闭" @click="close"><X :size="18" /></button></header>
-        <div class="account-switch-notice"><KeyRound :size="19" /><p>本机只保存账号摘要。验证码由后端发送到该历史账号已绑定的联系方式，成功后旧 Refresh family 会被撤销。</p></div>
+        <div class="account-switch-notice"><KeyRound :size="19" /><p>为了保护账号安全，本机不会保存密码或完整联系方式。验证成功后，当前账号会安全退出并切换到所选账号。</p></div>
         <p v-if="localError || submitError" class="alert error">{{ localError || submitError }}</p>
         <form @submit.prevent="submit">
-          <label><span>验证渠道</span><select v-model="channel" :disabled="busy"><option v-for="item in channels" :key="item" :value="item">{{ item === 'phone' ? '手机号' : '邮箱' }}</option></select></label>
+          <label><span>验证方式</span><select v-model="channel" :disabled="busy"><option v-for="item in channels" :key="item" :value="item">{{ item === 'phone' ? '手机号' : '邮箱' }}</option></select></label>
           <p v-if="maskedTarget" class="account-switch-target">验证码已发送至 {{ maskedTarget }}</p>
           <label><span>验证码</span><div class="code-row"><input ref="codeInput" v-model="code" type="text" maxlength="16" autocomplete="one-time-code" :disabled="busy" /><button class="secondary-button" type="button" :disabled="busy || cooldown > 0 || !channel" @click="sendCode"><Send :size="16" />{{ cooldown ? `${cooldown}s` : sending ? '发送中' : '发送验证码' }}</button></div></label>
           <div class="account-switch-actions"><button class="secondary-button" type="button" :disabled="busy" @click="close">取消</button><button type="submit" :disabled="busy || !channel">{{ submitting ? '正在切换...' : '验证并切换' }}</button></div>

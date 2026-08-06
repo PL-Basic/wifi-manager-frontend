@@ -217,7 +217,7 @@ async function submitForm() {
     >
       <header class="modal-header">
         <div>
-          <p class="page-kicker">网络节点</p>
+          <p class="page-kicker">网络设备</p>
           <h3>{{ isEdit ? '编辑设备' : '新增设备' }}</h3>
         </div>
 
@@ -260,7 +260,7 @@ async function submitForm() {
             type="text"
             maxlength="128"
             :disabled="saving"
-            placeholder="例如：一楼大厅节点"
+            placeholder="例如：一楼大厅设备"
           />
         </label>
 
@@ -312,7 +312,7 @@ async function submitForm() {
           </label>
 
           <label v-if="!isEdit">
-            <span>固件版本</span>
+            <span>设备软件版本</span>
             <input
               v-model="form.firmwareVersion"
               type="text"

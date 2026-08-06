@@ -30,8 +30,8 @@ const MODES = [
 ]
 
 const RANKING_OPTIONS = [
-  ['users', '用户'], ['macs', 'MAC'], ['sessions', 'Session'],
-  ['nodes', '节点'], ['devices', '设备'], ['destinationIps', '目标 IP'],
+  ['users', '用户'], ['macs', 'MAC'], ['sessions', '连接'],
+  ['nodes', '设备'], ['devices', '设备'], ['destinationIps', '目标 IP'],
   ['destinationPorts', '目标端口'], ['snis', 'SNI'], ['protocols', '协议']
 ]
 
@@ -219,14 +219,14 @@ function validate(mode, form) {
   if (timeError) return timeError
 
   if (mode === 'signals') {
-    if (!/^[1-9]\d*$/.test(idValue(form.nodeId))) return '节点 ID 必须是大于 0 的整数'
+    if (!/^[1-9]\d*$/.test(idValue(form.nodeId))) return '设备编号必须是大于 0 的整数'
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(form.mac.trim())) return '必须填写完整 MAC 地址'
     if (!Number.isInteger(Number(form.sampleLimit)) || Number(form.sampleLimit) < 3 || Number(form.sampleLimit) > 101) return '采样数必须是 3 到 101 之间的整数'
     if (![1, 5, 15, 30, 60].includes(Number(form.bucketMinutes))) return '信号分桶间隔无效'
     return ''
   }
 
-  for (const [key, label] of [['userId', '用户 ID'], ['sessionId', 'Session ID'], ['nodeId', '节点 ID']]) {
+  for (const [key, label] of [['userId', '用户编号'], ['sessionId', '连接编号'], ['nodeId', '设备编号']]) {
     const error = validateOptionalId(form[key], label)
     if (error) return error
   }
@@ -363,7 +363,7 @@ watch(
 <template>
   <section class="workspace-view insights-page">
     <header class="dashboard-header">
-      <div><p class="page-kicker">洞察工作区</p><h2>运行分析</h2></div>
+      <div><p class="page-kicker">数据分析</p><h2>运行分析</h2></div>
       <button class="secondary-button" type="button" :disabled="activeState.loading" @click="runQuery">
         <RefreshCw :size="16" aria-hidden="true" />刷新当前结果
       </button>
@@ -377,14 +377,14 @@ watch(
 
     <form class="glass-toolbar insights-filter-grid" @submit.prevent="runQuery">
       <template v-if="activeMode === 'signals'">
-        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" required /></label>
+        <label><span>设备编号</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" required /></label>
         <label><span>MAC</span><input v-model="activeForm.mac" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" required /></label>
       </template>
       <template v-else>
         <label><span>用户 ID</span><input v-model="activeForm.userId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>MAC</span><input v-model="activeForm.mac" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" /></label>
-        <label><span>Session ID</span><input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
-        <label><span>节点 ID</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>连接编号</span><input v-model="activeForm.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>设备编号</span><input v-model="activeForm.nodeId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>设备编码</span><input v-model="activeForm.deviceCode" maxlength="64" /></label>
       </template>
 

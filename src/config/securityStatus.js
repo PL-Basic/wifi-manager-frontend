@@ -8,7 +8,7 @@ export const RULE_TYPES = Object.freeze({
 })
 
 export const RULE_ACTIONS = Object.freeze({
-  1: information('踢出客户端', 'danger'),
+  1: information('断开联网设备', 'danger'),
   2: information('阻断流量', 'danger'),
   3: information('仅告警', 'warning')
 })

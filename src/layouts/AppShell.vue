@@ -230,7 +230,7 @@ async function applyContextChange(request) {
     const response = await request()
     const auth = response.data?.data
     if (response.data?.code !== 200 || !auth?.token || !auth?.context) {
-      throw new Error(response.data?.message || '上下文切换没有返回新的登录会话')
+      throw new Error(response.data?.message || '工作区切换失败，服务没有返回新的登录状态')
     }
 
     disconnectAlertSocket()
@@ -238,9 +238,7 @@ async function applyContextChange(request) {
     setSession(auth, {}, 'context')
     await router.replace(getHomePath(auth.role, auth.context))
   } catch (error) {
-    contextError.value = error instanceof Error && !error.response
-      ? error.message
-      : getApiErrorMessage(error, '工作区切换失败')
+    contextError.value = getApiErrorMessage(error, '工作区切换失败，请稍后重试')
   } finally {
     contextPending.value = false
   }
@@ -267,9 +265,7 @@ async function completeStepUp(payload) {
     stepUpOpen.value = false
     sessionRevision.value += 1
   } catch (error) {
-    stepUpError.value = error instanceof Error && !error.response
-      ? error.message
-      : getApiErrorMessage(error, '登录环境复核失败')
+    stepUpError.value = getApiErrorMessage(error, '身份验证失败')
   } finally {
     stepUpPending.value = false
   }

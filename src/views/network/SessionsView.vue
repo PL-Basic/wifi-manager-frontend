@@ -51,7 +51,7 @@ function readPage(response) {
   const body = response?.data
 
   if (body?.code !== 200) {
-    throw new Error(body?.message || 'Session 加载失败')
+    throw new Error(body?.message || '连接记录加载失败')
   }
 
   return body.data || {}
@@ -120,7 +120,7 @@ async function loadSessions(page = pager.current) {
 
     pageError.value = error instanceof Error && !error.response
       ? error.message
-      : getApiErrorMessage(error, 'Session 加载失败')
+      : getApiErrorMessage(error, '连接记录加载失败')
 
     hasLoaded.value = true
   } finally {
@@ -172,7 +172,7 @@ onMounted(() => loadSessions(1))
     <header class="dashboard-header">
       <div>
         <p class="page-kicker">网络工作区</p>
-        <h2>Session</h2>
+        <h2>连接记录</h2>
       </div>
 
       <button
@@ -197,27 +197,27 @@ onMounted(() => loadSessions(1))
       </label>
 
       <label>
-        <span>节点 ID</span>
+        <span>设备编号</span>
         <input
           v-model="filters.nodeId"
           type="number"
           min="1"
-          placeholder="节点 ID"
+          placeholder="设备编号"
         />
       </label>
 
       <label>
-        <span>用户 ID</span>
+        <span>用户编号</span>
         <input
           v-model="filters.userId"
           type="number"
           min="1"
-          placeholder="用户 ID"
+          placeholder="用户编号"
         />
       </label>
 
       <label>
-        <span>Session 状态</span>
+        <span>连接状态</span>
         <select v-model="filters.status">
           <option value="">全部状态</option>
           <option
@@ -254,28 +254,28 @@ onMounted(() => loadSessions(1))
     <StateBlock
       v-if="loading && !hasLoaded"
       type="loading"
-      title="正在加载 Session"
-      text="正在读取真实授权和流量状态"
+      title="正在加载连接记录"
+      text="正在读取连接和流量状态"
     />
 
     <StateBlock
       v-else-if="hasLoaded && !pageError && !rows.length"
-      title="暂无 Session"
-      text="当前筛选条件下没有 Session 记录"
+      title="暂无连接记录"
+      text="当前筛选条件下没有符合条件的连接"
     />
 
     <AppTableFrame
       v-if="hasLoaded && rows.length"
       class="sessions-table-wrap"
-      label="Session 列表"
+      label="连接记录列表"
       :busy="loading"
     >
       <table class="sessions-table">
         <thead>
           <tr>
-            <th>Session ID</th>
+            <th>连接编号</th>
             <th>用户</th>
-            <th>节点</th>
+            <th>设备</th>
             <th>MAC</th>
             <th>IP</th>
             <th>状态</th>
@@ -310,7 +310,7 @@ onMounted(() => loadSessions(1))
               <button
                 class="icon-button"
                 type="button"
-                title="查看 Session 详情"
+                title="查看连接详情"
                 @click="openDetail(session)"
               >
                 <Eye :size="16" aria-hidden="true" />

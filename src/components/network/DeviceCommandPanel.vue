@@ -156,7 +156,7 @@ async function pollRequest(requestId) {
         clearPolling()
         showMessage(
           record.status === 2 ? 'success' : 'error',
-          `命令 ${requestId}：${resolveCommandStatus(record.status).label}`
+          `操作 ${requestId}：${resolveCommandStatus(record.status).label}`
         )
       }
     }
@@ -164,11 +164,11 @@ async function pollRequest(requestId) {
     // 只停止轮询，不把“暂未查到记录”伪装成超时终态。
     if (pollCount >= 20 && !isCommandTerminal(record?.status)) {
       clearPolling()
-      showMessage('error', '命令记录暂未返回，请手动刷新命令历史')
+      showMessage('error', '暂未收到设备结果，请稍后刷新操作记录')
     }
   } catch (error) {
     if (requestId !== currentRequestId.value) return
-    showMessage('error', getApiErrorMessage(error, '命令状态查询失败'))
+    showMessage('error', getApiErrorMessage(error, '设备执行状态查询失败'))
   } finally {
     pollBusy.value = false
   }
@@ -205,11 +205,11 @@ async function submitCommand() {
     return
   }
 
-  const title = action === 'disconnect' ? '断开客户端' : '阻断流量'
+  const title = action === 'disconnect' ? '断开联网设备' : '阻断流量'
   if (!await confirmAction({
     title: `确认${title}`,
-    message: `将向设备 ${props.deviceCode} 提交${title}命令，并根据 requestId 跟踪真实终态。`,
-    confirmLabel: '提交命令',
+    message: `将向设备 ${props.deviceCode} 提交“${title}”操作，并持续查询设备执行结果。`,
+    confirmLabel: '确认提交',
     tone: 'danger'
   })) {
     return
@@ -227,10 +227,10 @@ async function submitCommand() {
     const data = readBody(response, `${title}请求失败`)
 
     if (!data?.requestId) {
-      throw new Error('后端未返回真实 requestId')
+      throw new Error('服务没有返回操作编号')
     }
 
-    showMessage('success', `${title}请求已受理，requestId：${data.requestId}`)
+    showMessage('success', `${title}请求已提交，操作编号：${data.requestId}`)
     trackRequest(data.requestId)
   } catch (error) {
     showMessage(
@@ -273,8 +273,8 @@ onBeforeUnmount(() => {
 <template>
   <section class="glass-panel device-command-panel">
     <header>
-      <p class="page-kicker">设备命令</p>
-      <h3>客户端和流量控制</h3>
+      <p class="page-kicker">设备操作</p>
+      <h3>联网设备和流量控制</h3>
     </header>
 
     <div class="command-mode-switch">
@@ -285,7 +285,7 @@ onBeforeUnmount(() => {
         @click="changeMode('disconnect')"
       >
         <UserX :size="16" aria-hidden="true" />
-        断开 MAC
+        断开连接
       </button>
 
       <button
@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
 
     <form class="command-action-form" @submit.prevent="submitCommand">
       <label v-if="mode === 'disconnect'">
-        <span>客户端 MAC</span>
+        <span>联网设备 MAC</span>
         <input
           v-model="form.mac"
           required
@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
         </label>
 
         <label>
-          <span>SNI（可选）</span>
+          <span>网站域名（可选）</span>
           <input
             v-model="form.sni"
             maxlength="255"
@@ -341,7 +341,7 @@ onBeforeUnmount(() => {
         :disabled="busy || props.disabled || props.retired || !props.deviceCode"
       >
         <Send :size="16" aria-hidden="true" />
-        {{ busy ? '发送中...' : '发送命令' }}
+        {{ busy ? '发送中...' : '提交操作' }}
       </button>
     </form>
 
@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
     </p>
 
     <div v-if="currentRequestId" class="command-current">
-      <span>当前 requestId</span>
+      <span>当前操作编号</span>
       <strong>{{ currentRequestId }}</strong>
       <span v-if="currentRecord" :class="['status-pill', `status-pill--${commandStatus.tone}`]">
         {{ commandStatus.label }}
@@ -363,8 +363,8 @@ onBeforeUnmount(() => {
 <StateBlock
   v-if="listLoading && !rows.length"
   type="loading"
-  title="正在加载命令历史"
-  text="正在读取设备命令终态"
+  title="正在加载操作记录"
+  text="正在读取设备执行结果"
 />
 
 <p v-if="listError" class="alert error">
@@ -373,13 +373,13 @@ onBeforeUnmount(() => {
 
 <StateBlock
   v-if="!listLoading && !listError && !rows.length"
-  title="暂无命令记录"
-  text="该设备还没有可查询的命令"
+  title="暂无操作记录"
+  text="该设备还没有可查询的远程操作"
 />
 
 <div v-if="rows.length" class="command-history-wrap">
   <div class="command-history-head">
-        <strong>命令历史</strong>
+        <strong>操作记录</strong>
         <button
           class="secondary-button compact-button"
           type="button"
@@ -394,8 +394,8 @@ onBeforeUnmount(() => {
       <table class="command-history-table">
         <thead>
           <tr>
-            <th>requestId</th>
-            <th>命令</th>
+            <th>操作编号</th>
+            <th>操作类型</th>
             <th>状态</th>
             <th>创建时间</th>
             <th>结果</th>

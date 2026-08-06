@@ -18,7 +18,7 @@ export function loadAmap() {
   if (loaderPromise) return loaderPromise
 
   if (!AMAP_KEY || !AMAP_SECURITY_JS_CODE) {
-    return Promise.reject(new Error('高德地图 Provider 配置不完整'))
+    return Promise.reject(new Error('高德地图服务配置不完整'))
   }
 
   window._AMapSecurityConfig = {

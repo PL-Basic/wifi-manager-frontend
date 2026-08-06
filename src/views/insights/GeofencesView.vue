@@ -100,7 +100,7 @@ async function loadFences(page = fencePager.current) {
 }
 
 function validateEventFilters() {
-  for (const [key, label] of [['fenceId', '围栏 ID'], ['userId', '用户 ID'], ['sessionId', 'Session ID']]) {
+  for (const [key, label] of [['fenceId', '区域编号'], ['userId', '用户编号'], ['sessionId', '连接编号']]) {
     if (idValue(eventFilters[key]) && !/^[1-9]\d*$/.test(idValue(eventFilters[key]))) return `${label} 必须是大于 0 的整数`
   }
   if (eventFilters.mac.trim() && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(eventFilters.mac.trim())) return 'MAC 地址格式无效'
@@ -296,7 +296,7 @@ onMounted(() => loadFences(1))
 <template>
   <section class="workspace-view insights-page">
     <header class="dashboard-header">
-      <div><p class="page-kicker">洞察工作区</p><h2>地理围栏</h2></div>
+      <div><p class="page-kicker">数据分析</p><h2>区域提醒</h2></div>
       <button v-if="activeMode === 'fences'" type="button" @click="openCreate"><Plus :size="16" aria-hidden="true" />创建围栏</button>
       <button v-else class="secondary-button" type="button" :disabled="eventState.loading" @click="loadEvents()"><RefreshCw :size="16" aria-hidden="true" />刷新事件</button>
     </header>
@@ -315,7 +315,7 @@ onMounted(() => loadFences(1))
       <p v-if="pageSuccess" class="alert success">{{ pageSuccess }}</p>
       <p v-if="actionError || fenceState.error" class="alert error">{{ actionError || fenceState.error }}</p>
       <StateBlock v-if="fenceState.loading && !fenceState.loaded" type="loading" title="正在加载围栏" />
-      <StateBlock v-else-if="fenceState.loaded && !fenceState.rows.length && !fenceState.error" title="暂无围栏" text="可以创建第一个圆形地理围栏" />
+      <StateBlock v-else-if="fenceState.loaded && !fenceState.rows.length && !fenceState.error" title="暂无提醒区域" text="可以创建第一个圆形提醒区域" />
 
       <template v-if="fenceState.rows.length">
         <SpatialCanvas :layer="fenceMapLayer" title="当前页围栏中心" />
@@ -343,7 +343,7 @@ onMounted(() => loadFences(1))
       <form class="glass-toolbar geofence-event-filter-grid" @submit.prevent="searchEvents">
         <label><span>围栏 ID</span><input v-model="eventFilters.fenceId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>用户 ID</span><input v-model="eventFilters.userId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
-        <label><span>Session ID</span><input v-model="eventFilters.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
+        <label><span>连接编号</span><input v-model="eventFilters.sessionId" type="text" inputmode="numeric" pattern="[0-9]*" /></label>
         <label><span>MAC</span><input v-model="eventFilters.mac" maxlength="17" /></label>
         <label><span>事件类型</span><select v-model="eventFilters.eventType"><option value="">全部</option><option value="ENTER">进入</option><option value="EXIT">离开</option></select></label>
         <label><span>开始时间</span><input v-model="eventFilters.startTime" type="datetime-local" /></label>
@@ -354,7 +354,7 @@ onMounted(() => loadFences(1))
       <StateBlock v-if="eventState.loading && !eventState.loaded" type="loading" title="正在加载围栏事件" />
       <StateBlock v-else-if="eventState.loaded && !eventState.rows.length && !eventState.error" title="暂无围栏事件" />
       <section v-if="eventState.rows.length" class="glass-panel insights-result-table geofence-event-table">
-        <table><thead><tr><th>事件</th><th>围栏</th><th>用户 / Session</th><th>设备 / MAC</th><th>事件坐标</th><th>时间</th></tr></thead><tbody>
+        <table><thead><tr><th>事件</th><th>区域</th><th>用户 / 连接</th><th>设备 / MAC</th><th>发生位置</th><th>时间</th></tr></thead><tbody>
           <tr v-for="event in eventState.rows" :key="event.eventId">
             <td><span :class="['status-pill', resolveGeofenceEvent(event.eventType).tone]">{{ resolveGeofenceEvent(event.eventType).label }}</span></td>
             <td>{{ event.fenceName || '-' }}（{{ event.fenceId }}）</td><td>{{ event.userId ?? '-' }} / {{ event.sessionId ?? '-' }}</td>

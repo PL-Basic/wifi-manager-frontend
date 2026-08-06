@@ -108,7 +108,7 @@ watch(
         </header>
 
         <p v-if="error" class="alert error">{{ error }}</p>
-        <label><span>权益模式</span><select v-model="form.mode"><option value="DURATION">时长权益</option><option value="SUBSCRIPTION">订阅权益</option></select></label>
+        <label><span>赠送类型</span><select v-model="form.mode"><option value="DURATION">固定上网时长</option><option value="SUBSCRIPTION">按月上网服务</option></select></label>
         <div class="operations-form-row">
           <label><span>奖励时长</span><input v-model="form.durationValue" type="number" min="1" step="1" required /></label>
           <label><span>时长单位</span><select v-model="form.durationUnit"><option value="SECOND">秒</option><option value="MINUTE">分钟</option><option value="HOUR">小时</option><option value="DAY">天</option></select></label>
@@ -118,7 +118,7 @@ watch(
 
         <dl class="operations-detail">
           <dt>目标用户</dt><dd>{{ userId }}</dd>
-          <dt>生效权益</dt><dd>{{ formatDuration(grantSeconds) }}</dd>
+          <dt>赠送内容</dt><dd>{{ formatDuration(grantSeconds) }}</dd>
           <dt>订单价值</dt><dd>{{ formatMoney(amountCents) }}</dd>
           <dt>实际支付</dt><dd>¥0.00（奖励订单）</dd>
         </dl>

@@ -144,7 +144,7 @@ export function nodeCoverageLayer(data = {}) {
   const node = pointFeature(
     'coverage-node',
     positionFromFields(data.nodeLongitude, data.nodeLatitude),
-    { label: data.deviceCode || '节点', tone: 'green' }
+    { label: data.deviceCode || '设备', tone: 'green' }
   )
 
   return {

@@ -73,7 +73,7 @@ async function review(row, decision) {
   const approved = decision === 'APPROVE'
   const result = await requestActionDialog({
     title: `确认${approved ? '通过' : '驳回'}退款`,
-    message: `退款 ${row.refundNo} 将进入${approved ? '执行阶段' : '驳回终态'}。`,
+    message: `退款 ${row.refundNo} 将${approved ? '进入退款处理' : '被驳回并结束'}。`,
     confirmLabel: approved ? '通过退款' : '驳回退款',
     inputLabel: approved ? '审核备注' : '驳回原因',
     inputPlaceholder: approved ? '选填' : '请输入驳回原因',
@@ -127,7 +127,7 @@ onMounted(() => load(1))
 
 <template>
   <section class="workspace-view operations-page">
-    <header class="dashboard-header"><div><p class="page-kicker">运营工作区</p><h2>退款审核</h2></div></header>
+    <header class="dashboard-header"><div><p class="page-kicker">业务管理</p><h2>退款审核</h2></div></header>
     <p v-if="error" class="alert error">{{ error }}</p>
     <p v-if="message" class="alert success">{{ message }}</p>
 

@@ -30,22 +30,22 @@ const appliedFilters = reactive({ ...filters })
 
 const filterFields = [
   { key: 'deviceCode', label: '设备编码', type: 'text', placeholder: 'ESP32-001' },
-  { key: 'nodeId', label: '节点 ID', type: 'number', placeholder: '节点 ID' },
-  { key: 'mac', label: '客户端 MAC', type: 'text', placeholder: 'AA:BB:CC:DD:EE:FF' },
-  { key: 'sessionId', label: 'Session ID', type: 'number', placeholder: 'Session ID' },
-  { key: 'state', label: '客户端状态', type: 'text', placeholder: 'AUTHORIZED' },
+  { key: 'nodeId', label: '设备编号', type: 'number', placeholder: '设备编号' },
+  { key: 'mac', label: '联网设备 MAC', type: 'text', placeholder: 'AA:BB:CC:DD:EE:FF' },
+  { key: 'sessionId', label: '连接编号', type: 'number', placeholder: '连接编号' },
+  { key: 'state', label: '连接状态', type: 'text', placeholder: '例如：已连接' },
   { key: 'startTime', label: '开始时间', type: 'datetime-local' },
   { key: 'endTime', label: '结束时间', type: 'datetime-local' }
 ]
 
 const columns = [
   ['id', 'ID'],
-  ['nodeId', '节点 ID'],
+  ['nodeId', '设备编号'],
   ['deviceCode', '设备编码'],
-  ['mac', '客户端 MAC'],
-  ['sessionId', 'Session ID'],
+  ['mac', '联网设备 MAC'],
+  ['sessionId', '连接编号'],
   ['rssi', '信号强度'],
-  ['state', '客户端状态'],
+  ['state', '连接状态'],
   ['reportTime', '上报时间']
 ]
 
@@ -82,7 +82,7 @@ function requestParams(page) {
 function readPage(response) {
   const body = response?.data
   if (body?.code !== 200) {
-    throw new Error(body?.message || '客户端信号加载失败')
+    throw new Error(body?.message || '连接信号加载失败')
   }
   return body.data || {}
 }
@@ -109,7 +109,7 @@ async function loadSignals(page = pager.current) {
 
     pageError.value = error instanceof Error && !error.response
       ? error.message
-      : getApiErrorMessage(error, '客户端信号加载失败')
+      : getApiErrorMessage(error, '连接信号加载失败')
     hasLoaded.value = true
     return false
   } finally {
@@ -150,7 +150,7 @@ onMounted(() => loadSignals(1))
     <header class="dashboard-header">
       <div>
         <p class="page-kicker">网络工作区</p>
-        <h2>客户端信号</h2>
+        <h2>连接信号</h2>
       </div>
 
       <button
@@ -196,17 +196,17 @@ onMounted(() => loadSignals(1))
     <StateBlock
       v-if="loading && !hasLoaded"
       type="loading"
-      title="正在加载客户端信号"
+      title="正在加载连接信号"
       text="正在同步设备上报的真实 RSSI 数据"
     />
 
     <StateBlock
       v-else-if="hasLoaded && !pageError && !rows.length"
-      title="暂无客户端信号"
+      title="暂无连接信号"
       text="当前筛选条件下没有信号记录"
     />
 
-    <AppTableFrame v-if="hasLoaded && rows.length" class="client-table-wrap" label="客户端信号列表" :busy="loading">
+    <AppTableFrame v-if="hasLoaded && rows.length" class="client-table-wrap" label="连接信号列表" :busy="loading">
       <table class="client-table">
         <thead>
           <tr>

@@ -11,7 +11,7 @@ function reload() {
     <Building2 :size="34" aria-hidden="true" />
     <div>
       <h2>当前没有可用工作区</h2>
-      <p>账号尚未获得有效租户上下文，或者租户状态已经变化。</p>
+      <p>该账号还没有加入可用的组织，或者所在组织已暂停使用。</p>
     </div>
     <button class="secondary-button" type="button" @click="reload">
       <RefreshCw :size="16" />

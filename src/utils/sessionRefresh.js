@@ -11,6 +11,7 @@ import {
   requestSessionLogout,
   requestSessionRefresh
 } from '@/api/sessionTransport'
+import { toUserFacingMessage } from '@/utils/apiError'
 
 const REFRESH_LOCK_NAME = 'wifi:auth-refresh:v1'
 const REFRESH_LEASE_KEY = 'wifi:auth-refresh-lease:v1'
@@ -23,7 +24,9 @@ let currentRefresh = null
 
 export class RefreshStepUpRequiredError extends Error {
   constructor(response) {
-    super(response?.data?.message || '当前登录环境需要验证码复核')
+    super(toUserFacingMessage(
+      response?.data?.message || '为了保护账号安全，请完成验证码验证'
+    ))
     this.name = 'RefreshStepUpRequiredError'
     this.code = 'REFRESH_STEP_UP_REQUIRED'
     this.response = response
@@ -144,7 +147,7 @@ async function performRefresh(failedToken) {
   try {
     const body = await requestSessionRefresh()
     if (Number(body?.code) !== 200 || !body?.data?.token) {
-      throw new Error(body?.message || '刷新接口没有返回新的 Access JWT')
+      throw new Error(toUserFacingMessage(body?.message || '登录状态更新失败，请重新登录'))
     }
 
     setSession(body.data, {}, 'refresh')
@@ -157,7 +160,9 @@ async function performRefresh(failedToken) {
 
     if (refreshHttpStatus(error) === 401) {
       clearRefreshStepUpRequired()
-      clearSession(error?.response?.data?.message || '登录状态已过期，请重新登录')
+      clearSession(toUserFacingMessage(
+        error?.response?.data?.message || '登录状态已过期，请重新登录'
+      ))
     }
     throw error
   }
@@ -201,9 +206,11 @@ export async function completeRefreshStepUp(data) {
     if (Number(body?.code) !== 200 || !body?.data?.token) {
       if (Number(body?.code) === 401) {
         clearRefreshStepUpRequired()
-        clearSession(body?.message || '登录状态已过期，请重新登录')
+        clearSession(toUserFacingMessage(body?.message || '登录状态已过期，请重新登录'))
       }
-      throw new Error(body?.message || '登录环境复核没有返回新的 Access JWT')
+      throw new Error(toUserFacingMessage(
+        body?.message || '身份验证成功，但登录状态更新失败'
+      ))
     }
 
     setSession(body.data, {}, 'refresh')
@@ -212,7 +219,9 @@ export async function completeRefreshStepUp(data) {
   } catch (error) {
     if (refreshHttpStatus(error) === 401) {
       clearRefreshStepUpRequired()
-      clearSession(error?.response?.data?.message || '登录状态已过期，请重新登录')
+      clearSession(toUserFacingMessage(
+        error?.response?.data?.message || '登录状态已过期，请重新登录'
+      ))
     }
     throw error
   }

@@ -270,7 +270,7 @@ onMounted(async () => {
       })
       await renderAmapLocations()
     } catch (error) {
-      providerError.value = error?.message || '高德地图 Provider 加载失败'
+      providerError.value = error?.message || '高德地图服务加载失败'
       amapApi = null
       if (!map && mapElement.value) initLeafletMap()
     }
@@ -333,12 +333,12 @@ onBeforeUnmount(() => {
           <strong>{{ latest.mac || '-' }}</strong>
           <p>{{ formatTime(latest.reportTime) }}</p>
           <p>精度 {{ latest.accuracy || '-' }} 米 · {{ latest.source || '-' }}</p>
-          <p>Session {{ latest.sessionId || '-' }} · 节点 {{ latest.nodeId || '-' }}</p>
+          <p>连接 {{ latest.sessionId || '-' }} · 设备 {{ latest.nodeId || '-' }}</p>
         </article>
         <article v-else class="latest-location">
           <span>最新定位</span>
           <strong>尚未上报</strong>
-          <p>地图不是定位来源。需要先由手机浏览器获取 GPS，再通过 ACTIVE Session 上报。</p>
+          <p>地图只负责展示位置。实际位置由手机获取，并通过当前在线连接上传。</p>
         </article>
 
         <article class="bounds-card">

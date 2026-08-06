@@ -97,14 +97,14 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="open" class="step-up-backdrop">
       <section class="step-up-dialog" role="dialog" aria-modal="true" aria-labelledby="step-up-title">
-        <header><div><p>安全复核</p><h3 id="step-up-title">确认当前登录环境</h3></div><button class="icon-button" type="button" :disabled="busy" title="关闭" aria-label="关闭" @click="close"><X :size="18" /></button></header>
-        <div class="step-up-notice"><KeyRound :size="19" /><p>检测到多个环境信号发生变化。完成验证码复核后，页面会继续使用新的 Access JWT。</p></div>
+        <header><div><p>账号保护</p><h3 id="step-up-title">请再次确认是你本人</h3></div><button class="icon-button" type="button" :disabled="busy" title="关闭" aria-label="关闭" @click="close"><X :size="18" /></button></header>
+        <div class="step-up-notice"><KeyRound :size="19" /><p>检测到登录设备或网络发生较大变化。完成验证码验证后，系统会自动继续刚才的操作。</p></div>
         <p v-if="localError || submitError" class="alert error">{{ localError || submitError }}</p>
         <form @submit.prevent="submit">
           <label><span>验证方式</span><select v-model="target" :disabled="busy"><option v-for="contact in normalizedContacts" :key="contact.target" :value="contact.target">{{ contact.type === 'phone' ? '手机号' : '邮箱' }} {{ maskContact(contact.target) }}</option><option value="__manual__">输入其他已绑定联系方式</option></select></label>
           <label v-if="target === '__manual__'"><span>手机号或邮箱</span><input v-model="manualTarget" type="text" autocomplete="username" :disabled="busy" /></label>
           <label><span>验证码</span><div class="step-up-code"><input ref="codeInput" v-model="code" maxlength="16" autocomplete="one-time-code" :disabled="busy" /><button class="secondary-button" type="button" :disabled="busy || cooldown > 0 || !selectedTarget" @click="sendCode"><Send :size="16" />{{ cooldown ? `${cooldown}s` : sending ? '发送中' : '发送验证码' }}</button></div></label>
-          <footer><button class="secondary-button" type="button" :disabled="busy" @click="close">取消</button><button type="submit" :disabled="busy">{{ submitting ? '正在验证...' : '完成复核' }}</button></footer>
+          <footer><button class="secondary-button" type="button" :disabled="busy" @click="close">取消</button><button type="submit" :disabled="busy">{{ submitting ? '正在验证...' : '确认是我' }}</button></footer>
         </form>
       </section>
     </div>

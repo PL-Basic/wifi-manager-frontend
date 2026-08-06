@@ -23,8 +23,38 @@ function hasStructuredResponseBody(response) {
   return Boolean(body && typeof body === 'object')
 }
 
+const TECHNICAL_MESSAGE_REPLACEMENTS = [
+  [/TRUSTED_TOKEN_MISMATCH/gi, '请求来源验证失败'],
+  [/Refresh Session/gi, '登录状态'],
+  [/Refresh Token/gi, '登录凭据'],
+  [/Refresh family/gi, '相关登录状态'],
+  [/Access JWT/gi, '登录凭据'],
+  [/\bJWT\b/gi, '登录凭据'],
+  [/\bToken\b/gi, '登录凭据'],
+  [/租户上下文/g, '当前组织信息'],
+  [/平台上下文/g, '系统管理模式'],
+  [/上下文/g, '工作范围'],
+  [/租户/g, '组织'],
+  [/Gateway/g, '服务入口'],
+  [/下游服务/g, '相关功能'],
+  [/tenant-service/gi, '组织服务']
+]
+
+export function toUserFacingMessage(value) {
+  const replaced = TECHNICAL_MESSAGE_REPLACEMENTS.reduce(
+    (message, [pattern, replacement]) => message.replace(pattern, replacement),
+    String(value || '').trim()
+  )
+
+  // 后端中英文混排时常在技术词两侧留空格，替换后移除中文之间的多余空格。
+  return replaced.replace(
+    /([\u3400-\u9fff，。；：！？])\s+(?=[\u3400-\u9fff，。；：！？])/g,
+    '$1'
+  )
+}
+
 // 页面不仅需要一段文字，还需要知道错误属于权限、冲突、限流还是服务故障。
-export function getApiErrorInfo(error, fallback = '请求失败') {
+function getRawApiErrorInfo(error, fallback = '请求失败') {
   const response = error?.response
   const httpStatus = Number(response?.status) || 0
   const businessStatus = Number(response?.data?.code) || 0
@@ -48,7 +78,7 @@ export function getApiErrorInfo(error, fallback = '请求失败') {
     return {
       status: 0,
       type: 'timeout',
-      message: '请求超时，Gateway 或下游服务响应过慢，请稍后重试',
+      message: '请求超时，服务响应较慢，请稍后重试',
       retryable: true,
       retryAfter: ''
     }
@@ -69,7 +99,7 @@ export function getApiErrorInfo(error, fallback = '请求失败') {
     return {
       status: 0,
       type: 'offline',
-      message: '无法连接服务，请检查 Gateway 和相关服务是否正在运行',
+      message: '无法连接服务，请检查网络连接后重试',
       retryable: true,
       retryAfter: ''
     }
@@ -116,7 +146,7 @@ export function getApiErrorInfo(error, fallback = '请求失败') {
     return {
       status,
       type: 'service-unavailable',
-      message: backendMessage || `${fallback}：Gateway 已连接，但下游服务暂时不可用`,
+      message: backendMessage || `${fallback}：部分相关功能暂时不可用`,
       retryable: true,
       retryAfter
     }
@@ -138,6 +168,14 @@ export function getApiErrorInfo(error, fallback = '请求失败') {
     message: backendMessage || error?.message || fallback,
     retryable: false,
     retryAfter
+  }
+}
+
+export function getApiErrorInfo(error, fallback = '请求失败') {
+  const info = getRawApiErrorInfo(error, fallback)
+  return {
+    ...info,
+    message: toUserFacingMessage(info.message)
   }
 }
 

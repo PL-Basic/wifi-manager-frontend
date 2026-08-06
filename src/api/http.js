@@ -88,7 +88,7 @@ function reportFailure(error) {
   if (isRequestTimeout(error)) {
     reportApiConnectivity({
       status: 'degraded',
-      message: '请求超时，Gateway 或下游服务响应过慢'
+      message: '请求超时，服务响应较慢'
     })
   } else if (!error.response) {
     reportApiConnectivity({

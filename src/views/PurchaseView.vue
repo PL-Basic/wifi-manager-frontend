@@ -61,7 +61,7 @@ function newRequestId(intent) {
 
 function validateSelection() {
   const product = selectedProduct.value
-  if (!product) return '请选择要购买的权益'
+  if (!product) return '请选择要购买的上网服务'
   if (!product.customAmountAllowed) return ''
 
   const amount = selectedAmountCents.value
@@ -101,12 +101,12 @@ async function load() {
 
   if (entitlementResult.status === 'fulfilled') {
     try {
-      entitlement.value = unwrap(entitlementResult.value, '当前权益加载失败')
+      entitlement.value = unwrap(entitlementResult.value, '当前上网服务加载失败')
     } catch (cause) {
       entitlementError.value = cause.message
     }
   } else {
-    entitlementError.value = getApiErrorMessage(entitlementResult.reason, '当前权益加载失败')
+    entitlementError.value = getApiErrorMessage(entitlementResult.reason, '当前上网服务加载失败')
   }
 
   loading.value = false
@@ -156,8 +156,8 @@ onMounted(load)
   <section class="workspace-view billing-page">
     <header class="dashboard-header">
       <div>
-        <p class="page-kicker">权益购买</p>
-        <h2>选择网络权益</h2>
+        <p class="page-kicker">网络服务</p>
+        <h2>购买上网时长</h2>
       </div>
       <button class="secondary-button" type="button" :disabled="loading" @click="load">
         <RefreshCw :size="16" />
@@ -169,7 +169,7 @@ onMounted(load)
     <p v-if="entitlementError" class="alert warning">{{ entitlementError }}</p>
     <p v-if="actionError" class="alert error">{{ actionError }}</p>
 
-    <section v-if="entitlement" class="billing-summary" aria-label="当前权益摘要">
+    <section v-if="entitlement" class="billing-summary" aria-label="当前上网服务摘要">
       <article class="billing-metric">
         <span>当前模式</span>
         <strong>{{ entitlementModeLabel(entitlement.mode) }}</strong>
@@ -179,7 +179,7 @@ onMounted(load)
         <strong>{{ formatDuration(entitlement.remainingSeconds) }}</strong>
       </article>
       <article class="billing-metric">
-        <span>权益状态</span>
+        <span>服务状态</span>
         <strong>{{ Number(entitlement.status) === 1 ? '可用' : '停用' }}</strong>
       </article>
       <article class="billing-metric">
@@ -188,15 +188,15 @@ onMounted(load)
       </article>
     </section>
 
-    <StateBlock v-if="loading && !products.length" type="loading" title="正在加载可购买权益" />
+    <StateBlock v-if="loading && !products.length" type="loading" title="正在加载可购买服务" />
     <StateBlock v-else-if="!loading && !productError && !products.length" title="暂无可购买商品" />
 
     <section v-if="products.length" class="billing-purchase-layout">
       <div>
         <header class="billing-section-heading">
           <div>
-            <h3>可购买权益</h3>
-            <p>价格、时长和可用状态以服务端商品配置为准。</p>
+            <h3>可购买服务</h3>
+            <p>页面显示的价格、时长和可用状态就是实际下单内容。</p>
           </div>
         </header>
 
@@ -245,7 +245,7 @@ onMounted(load)
         </label>
 
         <dl class="operations-detail">
-          <dt>权益类型</dt><dd>{{ entitlementModeLabel(selectedProduct?.entitlementMode) }}</dd>
+          <dt>服务类型</dt><dd>{{ entitlementModeLabel(selectedProduct?.entitlementMode) }}</dd>
           <dt>获得时长</dt><dd>{{ formatDuration(selectedGrantSeconds) }}</dd>
           <dt>应付金额</dt><dd>{{ formatMoney(selectedAmountCents) }}</dd>
         </dl>

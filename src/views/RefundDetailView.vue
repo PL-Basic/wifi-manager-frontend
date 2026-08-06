@@ -112,7 +112,7 @@ onMounted(loadRefund)
             <dt>关联订单</dt><dd>{{ refund.orderNo || '-' }}</dd>
             <dt>支付单号</dt><dd>{{ refund.paymentNo || '-' }}</dd>
             <dt>购买 ID</dt><dd>{{ refund.purchaseId || refund.orderNo || '-' }}</dd>
-            <dt>请求 ID</dt><dd>{{ refund.requestId || '-' }}</dd>
+            <dt>操作编号</dt><dd>{{ refund.requestId || '-' }}</dd>
             <dt>申请时长</dt><dd>{{ formatDuration(refund.requestedSeconds) }}</dd>
             <dt>申请金额</dt><dd>{{ formatMoney(refund.requestedAmountCents) }}</dd>
             <dt>申请原因</dt><dd>{{ refund.reason || '-' }}</dd>

@@ -104,15 +104,15 @@ async function loadData() {
 
   try {
     account.entitlement = results[1].status === 'fulfilled'
-      ? unwrap(results[1].value, '权益加载失败')
+      ? unwrap(results[1].value, '上网服务加载失败')
       : (() => { throw results[1].reason })()
   } catch (cause) {
-    errors.push(readableError(cause, '权益加载失败'))
+    errors.push(readableError(cause, '上网服务加载失败'))
   }
 
   const pageTargets = [
     { result: results[2], key: 'orders', totalKey: 'orderTotal', fallback: '订单加载失败' },
-    { result: results[3], key: 'usage', fallback: '使用流水加载失败' },
+    { result: results[3], key: 'usage', fallback: '使用记录加载失败' },
     { result: results[4], key: 'refunds', totalKey: 'refundTotal', fallback: '退款加载失败' }
   ]
 
@@ -204,10 +204,10 @@ onMounted(loadData)
     <p v-if="loadError" class="alert error">{{ loadError }}</p>
     <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
 
-    <section class="billing-summary" aria-label="账户权益摘要">
+    <section class="billing-summary" aria-label="账户上网服务摘要">
       <article class="billing-metric"><span>剩余网络时长</span><strong>{{ formatDuration(account.entitlement?.remainingSeconds) }}</strong></article>
-      <article class="billing-metric"><span>权益模式</span><strong>{{ entitlementModeLabel(account.entitlement?.mode) }}</strong></article>
-      <article class="billing-metric"><span>权益状态</span><strong>{{ account.entitlement ? entitlementStatusLabel(account.entitlement.status) : '-' }}</strong></article>
+      <article class="billing-metric"><span>服务类型</span><strong>{{ entitlementModeLabel(account.entitlement?.mode) }}</strong></article>
+      <article class="billing-metric"><span>服务状态</span><strong>{{ account.entitlement ? entitlementStatusLabel(account.entitlement.status) : '-' }}</strong></article>
       <article class="billing-metric"><span>订阅到期</span><strong>{{ formatDateTime(account.entitlement?.subscriptionEndTime) }}</strong></article>
     </section>
 
@@ -239,8 +239,8 @@ onMounted(loadData)
       <article class="glass-panel billing-panel">
         <header class="billing-section-heading"><div><p class="page-kicker">账户服务</p><h3>常用操作</h3></div></header>
         <nav class="billing-link-list" aria-label="账户服务">
-          <RouterLink class="billing-link" to="/app/purchase"><span><ShoppingBag :size="18" /><span>购买权益<small>选择固定时长、订阅或自定义金额</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/entitlements"><span><ReceiptText :size="18" /><span>权益与使用流水<small>查看购买批次和每次时长变化</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/purchase"><span><ShoppingBag :size="18" /><span>购买上网时长<small>选择固定时长、按月服务或自定义金额</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink class="billing-link" to="/app/entitlements"><span><ReceiptText :size="18" /><span>上网服务与使用记录<small>查看购买记录和每次时长变化</small></span></span><ChevronRight :size="18" /></RouterLink>
           <RouterLink class="billing-link" to="/app/orders"><span><CreditCard :size="18" /><span>订单记录<small>{{ account.orderTotal }} 笔订单</small></span></span><ChevronRight :size="18" /></RouterLink>
           <RouterLink class="billing-link" to="/app/refunds"><span><RefreshCcw :size="18" /><span>退款记录<small>{{ account.refundTotal }} 笔退款</small></span></span><ChevronRight :size="18" /></RouterLink>
           <RouterLink class="billing-link" to="/app/account/security"><span><KeyRound :size="18" /><span>账户安全<small>管理密码、社交身份和删除申请</small></span></span><ChevronRight :size="18" /></RouterLink>
@@ -261,13 +261,13 @@ onMounted(loadData)
       </article>
 
       <article class="glass-panel billing-panel">
-        <header class="billing-section-heading"><div><h3>近期使用</h3><p>时长变化流水</p></div><RouterLink to="/app/entitlements">全部流水</RouterLink></header>
+        <header class="billing-section-heading"><div><h3>近期使用</h3><p>时长变化记录</p></div><RouterLink to="/app/entitlements">全部记录</RouterLink></header>
         <ul v-if="account.usage.length" class="billing-record-list">
           <li v-for="row in account.usage" :key="row.id" class="billing-record-row">
-            <strong>{{ row.reason || '权益变动' }}</strong><span>{{ row.changeSeconds > 0 ? '+' : '' }}{{ formatDuration(row.changeSeconds) }}</span><small>{{ formatDateTime(row.createTime) }}</small>
+            <strong>{{ row.reason || '上网时长变化' }}</strong><span>{{ row.changeSeconds > 0 ? '+' : '' }}{{ formatDuration(row.changeSeconds) }}</span><small>{{ formatDateTime(row.createTime) }}</small>
           </li>
         </ul>
-        <StateBlock v-else title="暂无使用流水" />
+        <StateBlock v-else title="暂无使用记录" />
       </article>
 
       <article class="glass-panel billing-panel">

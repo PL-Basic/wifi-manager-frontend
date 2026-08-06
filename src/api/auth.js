@@ -9,7 +9,7 @@ function requireOAuthProvider(provider) {
   const normalized = normalizeOAuthProvider(provider)
 
   if (!normalized) {
-    throw new Error('不支持的 OAuth Provider')
+    throw new Error('不支持该第三方登录方式')
   }
 
   return normalized

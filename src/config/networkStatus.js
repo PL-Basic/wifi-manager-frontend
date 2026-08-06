@@ -16,23 +16,23 @@ export const DEVICE_STATUSES = Object.freeze({
 
 export const SESSION_STATUSES = Object.freeze({
     0: status('已结束', 'neutral', true),
-    1: status('已授权', 'success'),
-    2: status('等待固件确认', 'warning'),
-    3: status('等待替换旧会话', 'info')
+    1: status('连接中', 'success'),
+    2: status('等待设备确认', 'warning'),
+    3: status('正在替换旧连接', 'info')
 })
 
 export const COMMAND_STATUSES = Object.freeze({
-    0: status('等待发布', 'warning'),
-    1: status('已发布，等待设备结果', 'info'),
+    0: status('等待发送', 'warning'),
+    1: status('已发送，等待设备结果', 'info'),
     2: status('执行成功', 'success', true),
     3: status('设备执行失败', 'danger', true),
-    4: status('MQTT 发布失败', 'danger', true),
+    4: status('指令发送失败', 'danger', true),
     5: status('等待结果超时', 'warning', true)
 })
 
 export const WIFI_CONFIG_STATUSES = Object.freeze({
     0: status('正在下发', 'info'),
-    1: status('候选配置已保存', 'success'),
+    1: status('新配置已保存，等待设备连接', 'success'),
     2: status('配置已生效', 'success', true),
     3: status('配置失败', 'danger', true),
     4: status('结果未知', 'warning'),

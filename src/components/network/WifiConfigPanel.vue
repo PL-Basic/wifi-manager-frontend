@@ -217,9 +217,9 @@ async function submitCandidate() {
   }
 
   if (!await confirmAction({
-    title: '确认修改 ESP 上游网络',
-    message: `将向设备 ${props.deviceCode} 下发新的上游网络 ${ssid}。设备切换网络时可能短暂离线。`,
-    confirmLabel: '确认下发',
+    title: '确认修改设备连接的 Wi-Fi',
+    message: `设备 ${props.deviceCode} 将改为连接 Wi-Fi“${ssid}”。切换期间设备可能短暂离线。`,
+    confirmLabel: '确认修改',
     tone: 'danger'
   })) {
     return
@@ -250,7 +250,7 @@ async function submitCandidate() {
     }
 
     if (!data?.requestId) {
-      throw new Error('后端未返回 WiFi 配置 requestId')
+      throw new Error('服务没有返回此次配置的操作编号')
     }
 
     taskVersion += 1
@@ -263,7 +263,7 @@ async function submitCandidate() {
 
     showMessage(
       'success',
-      `上游网络配置已受理，requestId：${data.requestId}`
+      `Wi-Fi 修改请求已提交，操作编号：${data.requestId}`
     )
 
     startPolling()
@@ -352,7 +352,7 @@ async function resumeLatestTask() {
     if (!data) return
 
     if (!data.requestId) {
-      throw new Error('后端最近 WiFi 配置缺少 requestId')
+      throw new Error('最近一次 Wi-Fi 配置缺少操作编号')
     }
 
     taskVersion += 1
@@ -421,7 +421,7 @@ onBeforeUnmount(() => {
     <header class="wifi-config-header">
       <div>
         <p class="page-kicker">设备配置</p>
-        <h3>ESP 上游网络</h3>
+        <h3>设备连接的 Wi-Fi</h3>
       </div>
       <Wifi :size="22" aria-hidden="true" />
     </header>
@@ -432,7 +432,7 @@ onBeforeUnmount(() => {
         <dd>{{ props.deviceCode || '-' }}</dd>
       </div>
       <div>
-        <dt>节点状态</dt>
+        <dt>设备状态</dt>
         <dd>
           <span :class="['status-pill', props.online ? 'status-pill--success' : 'status-pill--neutral']">
             {{ props.retired ? '已退役' : props.online ? '在线' : '离线' }}
@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
         </dd>
       </div>
       <div>
-        <dt>ESP WiFi 状态</dt>
+        <dt>Wi-Fi 连接状态</dt>
         <dd>{{ props.wifiStatus || '-' }}</dd>
       </div>
       <div>
@@ -460,7 +460,7 @@ onBeforeUnmount(() => {
           v-model="form.ssid"
           required
           maxlength="32"
-          placeholder="新的上游 WiFi SSID"
+          placeholder="请输入新的 Wi-Fi 名称"
           autocomplete="off"
           :disabled="!canSubmit"
         />
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
         :disabled="!canSubmit"
       >
         <Send :size="16" aria-hidden="true" />
-        {{ busy ? '下发中...' : '修改上游网络' }}
+        {{ busy ? '提交中...' : '修改设备 Wi-Fi' }}
       </button>
     </form>
 
@@ -509,7 +509,7 @@ onBeforeUnmount(() => {
     <section v-if="task" class="wifi-task-summary">
       <div class="wifi-task-header">
         <div>
-          <span>上游网络配置任务</span>
+          <span>Wi-Fi 修改记录</span>
           <strong>{{ task.requestId }}</strong>
         </div>
 

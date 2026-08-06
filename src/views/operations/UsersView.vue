@@ -200,13 +200,13 @@ async function purge(row) {
     const response = isSuper.value
       ? await purgeUser(row.userId)
       : await requestPurgeUser(row.userId, { reason })
-    ensureSuccess(response, '高风险操作失败')
+    ensureSuccess(response, '敏感操作失败')
     message.value = isSuper.value ? '用户已物理删除' : '物理删除申请已提交'
     await load()
   } catch (cause) {
     error.value = cause instanceof Error && !cause.response
       ? cause.message
-      : getApiErrorMessage(cause, '高风险操作失败')
+      : getApiErrorMessage(cause, '敏感操作失败')
   } finally {
     busyUserId.value = ''
   }
@@ -218,7 +218,7 @@ onMounted(() => load(1))
 <template>
   <section class="workspace-view operations-page">
     <header class="dashboard-header">
-      <div><p class="page-kicker">运营工作区</p><h2>用户管理</h2></div>
+      <div><p class="page-kicker">业务管理</p><h2>用户管理</h2></div>
       <button class="secondary-button" type="button" :disabled="loading" @click="load()"><RefreshCw :size="16" />刷新</button>
     </header>
     <p v-if="error" class="alert error">{{ error }}</p>

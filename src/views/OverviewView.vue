@@ -65,19 +65,19 @@ const metricItems = computed(() => [
     value: userStats.value.enabledUsers ?? '-'
   },
   {
-    label: '节点总数',
+    label: '设备总数',
     value: deviceStats.value.totalNodes ?? '-'
   },
   {
-    label: '在线节点',
+    label: '在线设备',
     value: deviceStats.value.onlineNodes ?? '-'
   },
   {
-    label: '当前客户端',
+    label: '当前连接设备',
     value: deviceStats.value.currentClients ?? '-'
   },
   {
-    label: '开放 Session',
+    label: '当前在线连接',
     value: deviceStats.value.onlineSessions ?? '-'
   },
   {
@@ -85,7 +85,7 @@ const metricItems = computed(() => [
     value: deviceStats.value.blacklistCount ?? '-'
   },
   {
-    label: '节点在线率',
+    label: '设备在线率',
     value: onlineRate.value
   },
   {
@@ -108,19 +108,19 @@ const metricItems = computed(() => [
 
 const serviceItems = computed(() => [
   {
-    label: 'Gateway',
+    label: '服务入口',
     value: overview.value?.gatewayStatus || 'UNKNOWN'
   },
   {
-    label: 'User Service',
+    label: '账号服务',
     value: overview.value?.userServiceStatus || 'UNKNOWN'
   },
   {
-    label: 'Device Service',
+    label: '设备服务',
     value: overview.value?.deviceServiceStatus || 'UNKNOWN'
   },
   {
-    label: 'Monitor Service',
+    label: '监控服务',
     value: overview.value?.monitorServiceStatus || 'UNKNOWN'
   }
 ])
@@ -251,7 +251,7 @@ async function loadOverview() {
 
   if (successCount === 0) {
     pageError.value = summarizeFailures(failures, new Set(failures.map((item) => item.message)).size > 1)
-      || 'Overview 暂时无法加载'
+      || '运行总览暂时无法加载'
   } else if (failures.length) {
     partialNotice.value = `部分数据暂时不可用：${summarizeFailures(failures, true)}`
   }
@@ -294,7 +294,7 @@ onMounted(loadOverview)
       v-if="loading && !hasData"
       type="loading"
       title="正在加载运行总览"
-      text="正在同步服务状态和节点统计"
+      text="正在同步服务状态和设备统计"
     />
 
     <StateBlock
@@ -341,7 +341,7 @@ onMounted(loadOverview)
         <article class="glass-panel overview-panel">
           <header class="overview-panel__header">
             <div>
-              <p class="page-kicker">最近节点</p>
+              <p class="page-kicker">最近设备</p>
               <h3>设备概况</h3>
             </div>
           </header>
@@ -352,7 +352,7 @@ onMounted(loadOverview)
                 <tr>
                   <th>设备</th>
                   <th>状态</th>
-                  <th>客户端</th>
+                  <th>联网设备</th>
                   <th>最近心跳</th>
                 </tr>
               </thead>
@@ -380,7 +380,7 @@ onMounted(loadOverview)
           <StateBlock
             v-else
             title="暂无最近设备"
-            text="当前没有可展示的节点记录"
+            text="当前没有可展示的设备记录"
           />
         </article>
       </section>
@@ -388,7 +388,7 @@ onMounted(loadOverview)
       <section class="glass-panel overview-panel overview-command-panel">
         <header class="overview-panel__header">
           <div>
-            <p class="page-kicker">最近命令</p>
+            <p class="page-kicker">最近操作</p>
             <h3>设备执行状态</h3>
           </div>
         </header>
@@ -397,9 +397,9 @@ onMounted(loadOverview)
           <table class="overview-table">
             <thead>
               <tr>
-                <th>Request ID</th>
+                <th>操作编号</th>
                 <th>设备</th>
-                <th>命令</th>
+                <th>操作</th>
                 <th>状态</th>
                 <th>结果时间</th>
                 <th>结果消息</th>

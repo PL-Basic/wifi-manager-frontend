@@ -56,7 +56,7 @@ async function load(page = pager.current) {
       keyword: appliedKeyword.value || undefined
     })
     if (!requestGate.isCurrent(version)) return
-    ensureSuccess(response, '租户加载失败')
+    ensureSuccess(response, '组织列表加载失败')
     const data = response.data.data || {}
     pager.current = Number(data.current) || page
     pager.size = Number(data.size) || pager.size
@@ -65,7 +65,7 @@ async function load(page = pager.current) {
     loaded.value = true
   } catch (cause) {
     if (requestGate.isCurrent(version)) {
-      error.value = cause instanceof Error && !cause.response ? cause.message : getApiErrorMessage(cause, '租户加载失败')
+      error.value = getApiErrorMessage(cause, '组织列表加载失败')
       loaded.value = true
     }
   } finally {
@@ -92,12 +92,12 @@ async function createTenant(payload) {
   message.value = ''
   try {
     const response = await createPlatformTenant(payload)
-    ensureSuccess(response, '租户创建失败')
+    ensureSuccess(response, '组织创建失败')
     createOpen.value = false
-    message.value = `租户 ${response.data.data?.name || payload.name} 已创建`
+    message.value = `组织“${response.data.data?.name || payload.name}”已创建`
     await load(1)
   } catch (cause) {
-    createError.value = cause instanceof Error && !cause.response ? cause.message : getApiErrorMessage(cause, '租户创建失败')
+    createError.value = getApiErrorMessage(cause, '组织创建失败')
   } finally {
     createPending.value = false
   }
@@ -108,8 +108,8 @@ async function changeStatus(row) {
   const targetStatus = row.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'
   const action = targetStatus === 'ACTIVE' ? '恢复' : '停用'
   if (!await confirmAction({
-    title: `${action}租户`,
-    message: `${action}租户 ${row.name}（${row.tenantCode}）？`,
+    title: `${action}组织`,
+    message: `确定要${action}组织“${row.name}”吗？`,
     confirmLabel: action,
     tone: targetStatus === 'ACTIVE' ? 'default' : 'danger'
   })) return
@@ -119,11 +119,11 @@ async function changeStatus(row) {
   message.value = ''
   try {
     const response = await updatePlatformTenantStatus(row.tenantId, { status: targetStatus })
-    ensureSuccess(response, `租户${action}失败`)
-    message.value = `租户已${action}`
+    ensureSuccess(response, `组织${action}失败`)
+    message.value = `组织已${action}`
     await load()
   } catch (cause) {
-    error.value = cause instanceof Error && !cause.response ? cause.message : getApiErrorMessage(cause, `租户${action}失败`)
+    error.value = getApiErrorMessage(cause, `组织${action}失败`)
   } finally {
     busyTenantId.value = ''
   }
@@ -135,33 +135,33 @@ onMounted(() => load(1))
 <template>
   <section class="workspace-view platform-page">
     <header class="dashboard-header">
-      <div><p class="page-kicker">平台治理</p><h2>租户管理</h2></div>
+      <div><p class="page-kicker">系统管理</p><h2>组织管理</h2></div>
       <div class="platform-actions">
         <button class="secondary-button" type="button" :disabled="loading" @click="load()"><RefreshCw :size="16" />刷新</button>
-        <button type="button" :disabled="loading" @click="createError = ''; createOpen = true"><Plus :size="16" />创建租户</button>
+        <button type="button" :disabled="loading" @click="createError = ''; createOpen = true"><Plus :size="16" />创建组织</button>
       </div>
     </header>
 
     <div class="platform-context-notice" role="status">
       <ShieldAlert :size="19" aria-hidden="true" />
-      <p><strong>租户上下文迁移尚未启用。</strong> 当前页面只管理租户、成员和订阅骨架，现有业务数据仍归属默认兼容租户。</p>
+      <p><strong>当前仅开放组织和成员管理。</strong> 设备与业务数据暂时统一显示在默认组织中。</p>
     </div>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="message" class="alert success" role="status">{{ message }}</p>
 
     <form class="glass-toolbar platform-toolbar" @submit.prevent="search">
-      <label><span>关键字</span><input v-model="keyword" placeholder="租户编码或租户名称" /></label>
+      <label><span>关键字</span><input v-model="keyword" placeholder="组织标识或组织名称" /></label>
       <div class="platform-actions">
         <button type="submit" :disabled="loading"><Search :size="16" />查询</button>
         <button class="secondary-button" type="button" :disabled="loading" @click="reset">重置</button>
       </div>
     </form>
 
-    <StateBlock v-if="loading && !loaded" type="loading" title="正在加载租户" />
-    <StateBlock v-else-if="loaded && !error && !rows.length" title="暂无租户" text="当前查询条件没有返回租户记录。" />
+    <StateBlock v-if="loading && !loaded" type="loading" title="正在加载组织" />
+    <StateBlock v-else-if="loaded && !error && !rows.length" title="暂无组织" text="当前查询条件下没有组织记录。" />
     <section v-if="loaded && rows.length" class="glass-panel platform-table-wrap">
       <table class="platform-table">
-        <thead><tr><th>ID</th><th>租户</th><th>状态</th><th>时区</th><th>成员</th><th>订阅</th><th>创建时间</th><th>操作</th></tr></thead>
+        <thead><tr><th>系统编号</th><th>组织</th><th>状态</th><th>时区</th><th>成员</th><th>套餐状态</th><th>创建时间</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="row in rows" :key="row.tenantId">
             <td>{{ row.tenantId }}</td>
@@ -169,8 +169,8 @@ onMounted(() => load(1))
             <td><span :class="['status-pill', row.status === 'ACTIVE' ? 'status-pill--success' : 'status-pill--neutral']">{{ statusLabel(row.status) }}</span></td>
             <td>{{ row.timezone }}</td><td>{{ row.memberCount ?? 0 }}</td><td>{{ subscriptionLabel(row.subscriptionStatus) }}</td><td>{{ formatTime(row.createTime) }}</td>
             <td class="platform-actions">
-              <button class="icon-button" type="button" title="查看租户详情" @click="router.push(`/app/platform/tenants/${row.tenantId}`)"><ArrowRight :size="16" /></button>
-              <button class="secondary-button compact-button" type="button" :disabled="Boolean(busyTenantId) || row.tenantCode === 'default-tenant'" :title="row.tenantCode === 'default-tenant' ? '默认兼容租户不能停用' : ''" @click="changeStatus(row)">{{ row.status === 'ACTIVE' ? '停用' : '恢复' }}</button>
+              <button class="icon-button" type="button" title="查看组织详情" @click="router.push(`/app/platform/tenants/${row.tenantId}`)"><ArrowRight :size="16" /></button>
+              <button class="secondary-button compact-button" type="button" :disabled="Boolean(busyTenantId) || row.tenantCode === 'default-tenant'" :title="row.tenantCode === 'default-tenant' ? '默认组织不能停用' : ''" @click="changeStatus(row)">{{ row.status === 'ACTIVE' ? '停用' : '恢复' }}</button>
             </td>
           </tr>
         </tbody>

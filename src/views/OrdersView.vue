@@ -103,7 +103,7 @@ onMounted(() => load(1))
           <RefreshCw :size="16" />刷新
         </button>
         <button type="button" @click="router.push('/app/purchase')">
-          <Plus :size="16" />购买权益
+          <Plus :size="16" />购买上网时长
         </button>
       </div>
     </header>
@@ -129,13 +129,13 @@ onMounted(() => load(1))
     </form>
 
     <StateBlock v-if="loading && !loaded" type="loading" title="正在加载订单" />
-    <StateBlock v-else-if="loaded && !error && !rows.length" title="暂无订单" text="可以先购买一项网络权益" />
+    <StateBlock v-else-if="loaded && !error && !rows.length" title="暂无订单" text="可以先购买上网时长或按月服务" />
 
     <AppTableFrame v-if="rows.length" :busy="loading" label="订单记录">
       <table class="operations-table billing-table">
         <thead>
           <tr>
-            <th>订单号</th><th>类型</th><th>商品</th><th>权益</th><th>状态</th><th>订单金额</th><th>实付</th><th>已退款</th><th>创建时间</th><th>操作</th>
+            <th>订单号</th><th>类型</th><th>商品</th><th>上网服务</th><th>状态</th><th>订单金额</th><th>实付</th><th>已退款</th><th>创建时间</th><th>操作</th>
           </tr>
         </thead>
         <tbody>

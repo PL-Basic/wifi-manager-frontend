@@ -115,7 +115,7 @@ onMounted(loadOrder)
           </strong>
         </article>
         <article class="billing-metric"><span>订单金额</span><strong>{{ formatMoney(order.amountCents) }}</strong></article>
-        <article class="billing-metric"><span>获得权益</span><strong>{{ formatDuration(order.grantSeconds) }}</strong></article>
+        <article class="billing-metric"><span>获得时长</span><strong>{{ formatDuration(order.grantSeconds) }}</strong></article>
         <article class="billing-metric"><span>{{ order.orderType === 'REWARD' ? '生效时间' : '支付截止' }}</span><strong>{{ formatDateTime(order.orderType === 'REWARD' ? order.fulfilledTime : order.expireTime) }}</strong></article>
       </section>
 
@@ -125,8 +125,8 @@ onMounted(loadOrder)
           <dl class="operations-detail">
             <dt>商品编码</dt><dd>{{ order.productCode }}</dd>
             <dt>订单类型</dt><dd>{{ order.orderType === 'REWARD' ? '奖励订单' : '购买订单' }}</dd>
-            <dt>权益模式</dt><dd>{{ entitlementModeLabel(order.entitlementMode) }}</dd>
-            <dt>权益时长</dt><dd>{{ formatDuration(order.grantSeconds) }}</dd>
+            <dt>服务类型</dt><dd>{{ entitlementModeLabel(order.entitlementMode) }}</dd>
+            <dt>上网时长</dt><dd>{{ formatDuration(order.grantSeconds) }}</dd>
             <dt>订单金额</dt><dd>{{ formatMoney(order.amountCents) }}</dd>
             <dt>实付金额</dt><dd>{{ formatMoney(order.paidAmountCents) }}</dd>
             <dt>已退金额</dt><dd>{{ formatMoney(order.refundedAmountCents) }}</dd>

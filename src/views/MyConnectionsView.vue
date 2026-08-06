@@ -42,7 +42,7 @@ async function load() {
     getMyClientSignals({ current: 1, size: 20 })
   ])
   const targets = [sessions, traffic, signals]
-  const labels = ['Session', '流量', '信号']
+  const labels = ['连接记录', '流量', '信号']
   const failures = []
 
   results.forEach((result, index) => {
@@ -63,7 +63,7 @@ async function load() {
 async function logout(session) {
   const confirmed = await confirmAction({
     title: '注销当前连接',
-    message: `Session ${session.sessionId} 将被注销，设备访问权限会随之撤销。`,
+    message: `连接 ${session.sessionId} 将被断开，该设备随后需要重新申请联网。`,
     confirmLabel: '确认注销',
     tone: 'danger'
   })
@@ -73,12 +73,12 @@ async function logout(session) {
   error.value = ''
   try {
     const { data } = await logoutMySession(session.sessionId)
-    if (data?.code !== 200) throw new Error(data?.message || 'Session 注销失败')
+    if (data?.code !== 200) throw new Error(data?.message || '断开连接失败')
     await load()
   } catch (cause) {
     error.value = cause instanceof Error && !cause.response
       ? cause.message
-      : getApiErrorMessage(cause, 'Session 注销失败')
+      : getApiErrorMessage(cause, '断开连接失败')
   } finally {
     busySessionId.value = null
   }
@@ -98,19 +98,19 @@ onMounted(load)
 
     <section v-else class="connections-grid">
       <article class="glass-panel connection-panel">
-        <header><div><p class="page-kicker">访问授权</p><h3>Session</h3></div><strong>{{ sessions.length }}</strong></header>
-        <div v-if="sessions.length" class="connection-table-wrap"><table><thead><tr><th>ID</th><th>MAC</th><th>设备</th><th>状态</th><th>到期时间</th><th>操作</th></tr></thead><tbody><tr v-for="row in sessions" :key="row.sessionId"><td>{{ row.sessionId }}</td><td>{{ row.mac || '-' }}</td><td>{{ row.deviceCode || row.nodeId || '-' }}</td><td>{{ row.statusName || row.status || '-' }}</td><td>{{ formatTime(row.expireTime) }}</td><td><button class="icon-button" type="button" title="注销 Session" aria-label="注销 Session" :disabled="busySessionId !== null" @click="logout(row)"><LogOut :size="16" /></button></td></tr></tbody></table></div>
-        <StateBlock v-else title="暂无 Session" text="完成 Portal 授权后，连接会显示在这里" />
+        <header><div><p class="page-kicker">联网记录</p><h3>当前连接</h3></div><strong>{{ sessions.length }}</strong></header>
+        <div v-if="sessions.length" class="connection-table-wrap"><table><thead><tr><th>连接编号</th><th>MAC</th><th>设备</th><th>状态</th><th>到期时间</th><th>操作</th></tr></thead><tbody><tr v-for="row in sessions" :key="row.sessionId"><td>{{ row.sessionId }}</td><td>{{ row.mac || '-' }}</td><td>{{ row.deviceCode || row.nodeId || '-' }}</td><td>{{ row.statusName || row.status || '-' }}</td><td>{{ formatTime(row.expireTime) }}</td><td><button class="icon-button" type="button" title="断开连接" aria-label="断开连接" :disabled="busySessionId !== null" @click="logout(row)"><LogOut :size="16" /></button></td></tr></tbody></table></div>
+        <StateBlock v-else title="暂无连接" text="完成网络接入后，连接会显示在这里" />
       </article>
 
       <article class="glass-panel connection-panel">
         <header><div><p class="page-kicker">最近用量</p><h3>流量</h3></div><strong>{{ traffic.length }}</strong></header>
-        <div v-if="traffic.length" class="connection-table-wrap"><table><thead><tr><th>Session</th><th>目标</th><th>上行</th><th>下行</th><th>时间</th></tr></thead><tbody><tr v-for="row in traffic" :key="row.trafficId"><td>{{ row.sessionId || '-' }}</td><td>{{ row.sni || row.dstIp || '-' }}</td><td>{{ formatBytes(row.bytesUp) }}</td><td>{{ formatBytes(row.bytesDown) }}</td><td>{{ formatTime(row.createTime) }}</td></tr></tbody></table></div>
+        <div v-if="traffic.length" class="connection-table-wrap"><table><thead><tr><th>连接编号</th><th>访问目标</th><th>发送</th><th>接收</th><th>时间</th></tr></thead><tbody><tr v-for="row in traffic" :key="row.trafficId"><td>{{ row.sessionId || '-' }}</td><td>{{ row.sni || row.dstIp || '-' }}</td><td>{{ formatBytes(row.bytesUp) }}</td><td>{{ formatBytes(row.bytesDown) }}</td><td>{{ formatTime(row.createTime) }}</td></tr></tbody></table></div>
         <StateBlock v-else title="暂无流量记录" />
       </article>
 
       <article class="glass-panel connection-panel connection-panel--wide">
-        <header><div><p class="page-kicker">连接质量</p><h3>客户端信号</h3></div><strong>{{ signals.length }}</strong></header>
+        <header><div><p class="page-kicker">连接质量</p><h3>信号记录</h3></div><strong>{{ signals.length }}</strong></header>
         <div v-if="signals.length" class="connection-table-wrap"><table><thead><tr><th>MAC</th><th>设备</th><th>RSSI</th><th>状态</th><th>采集时间</th></tr></thead><tbody><tr v-for="(row, index) in signals" :key="row.signalId || index"><td>{{ row.mac || '-' }}</td><td>{{ row.deviceCode || row.nodeId || '-' }}</td><td>{{ row.rssi ?? '-' }}</td><td>{{ row.state || '-' }}</td><td>{{ formatTime(row.reportTime || row.createTime) }}</td></tr></tbody></table></div>
         <StateBlock v-else title="暂无信号记录" />
       </article>

@@ -286,7 +286,7 @@ onMounted(async () => {
       })
       await renderAmapLayer()
     } catch (error) {
-      providerError.value = error?.message || '高德地图 Provider 加载失败'
+      providerError.value = error?.message || '高德地图服务加载失败'
       amapApi = null
       if (!map && mapElement.value) initLeafletMap()
     }

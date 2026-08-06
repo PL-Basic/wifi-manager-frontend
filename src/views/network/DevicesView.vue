@@ -145,7 +145,7 @@ onMounted(() => {
     <header class="dashboard-header">
       <div>
         <p class="page-kicker">网络工作区</p>
-        <h2>设备节点</h2>
+        <h2>设备管理</h2>
       </div>
 
       <div class="devices-header-actions">
@@ -202,39 +202,39 @@ onMounted(() => {
       </div>
 
       <p class="toolbar-note">
-        共 {{ pager.total }} 个节点
+        共 {{ pager.total }} 台设备
       </p>
     </section>
 
     <StateBlock
       v-if="loading && !hasLoaded"
       type="loading"
-      title="正在加载设备节点"
+      title="正在加载设备"
       text="正在同步设备列表"
     />
 
     <StateBlock
     v-else-if="hasLoaded && !pageError && !rows.length"
-    title="暂无设备节点"
+    title="暂无设备"
     text="当前筛选条件下没有设备记录"
     />
 
     <AppTableFrame
       v-else-if="hasLoaded"
       class="device-table-wrap"
-      label="设备节点列表"
+      label="设备列表"
       :busy="loading"
     >
       <table class="device-table">
         <thead>
           <tr>
-            <th>节点 ID</th>
+            <th>设备编号</th>
             <th>设备编码</th>
             <th>名称</th>
             <th>位置</th>
             <th>IP</th>
             <th>状态</th>
-            <th>在线客户端</th>
+            <th>在线联网设备</th>
             <th>最大容量</th>
             <th>最近心跳</th>
             <th>操作</th>

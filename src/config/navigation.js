@@ -8,8 +8,8 @@ const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
 // 导航只登记当前已有业务，尚未完成的页面不创建假入口。
 export const ACCOUNT_NAV_ITEMS = Object.freeze([
     { to: '/app/account/profile', label: '账户总览', icon: UserRound },
-    { to: '/app/purchase', label: '购买权益', icon: ShoppingBag },
-    { to: '/app/entitlements', label: '我的权益', icon: ReceiptText },
+    { to: '/app/purchase', label: '购买上网时长', icon: ShoppingBag },
+    { to: '/app/entitlements', label: '上网服务', icon: ReceiptText },
     { to: '/app/orders', label: '订单记录', icon: CreditCard },
     { to: '/app/refunds', label: '退款记录', icon: RefreshCcw },
     { to: '/app/account/security', label: '账户安全', icon: KeyRound },
@@ -27,20 +27,20 @@ export const NAVIGATION_GROUPS = [
     },
     {
         key: 'platform',
-        label: '平台',
+        label: '系统管理',
         items: [
-            { to: '/app/platform/tenants', label: '租户管理', icon: Building2, roles: SUPER_ADMIN_ROLES },
-            { to: '/app/platform/saas-plans', label: 'SaaS 套餐', icon: Layers3, roles: SUPER_ADMIN_ROLES }
+            { to: '/app/platform/tenants', label: '组织管理', icon: Building2, roles: SUPER_ADMIN_ROLES },
+            { to: '/app/platform/saas-plans', label: '服务套餐', icon: Layers3, roles: SUPER_ADMIN_ROLES }
         ]
     },
     {
         key: 'network',
         label: '网络',
         items: [
-            { to: '/app/network/devices', label: '设备节点', icon: Router, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/network/clients', label: '客户端信号', icon: Radio, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/network/sessions', label: '会话', icon: Activity, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/network/traffic', label: '流量', icon: ScrollText, roles: ADMIN_ROLES, tenantScoped: true }
+            { to: '/app/network/devices', label: '设备管理', icon: Router, roles: ADMIN_ROLES, tenantScoped: true },
+            { to: '/app/network/clients', label: '连接信号', icon: Radio, roles: ADMIN_ROLES, tenantScoped: true },
+            { to: '/app/network/sessions', label: '连接记录', icon: Activity, roles: ADMIN_ROLES, tenantScoped: true },
+            { to: '/app/network/traffic', label: '流量记录', icon: ScrollText, roles: ADMIN_ROLES, tenantScoped: true }
         ]
     },
     {
@@ -50,25 +50,25 @@ export const NAVIGATION_GROUPS = [
             { to: '/app/security/rules', label: '访问规则', icon: ShieldCheck, roles: ADMIN_ROLES, tenantScoped: true },
             { to: '/app/security/blacklist', label: '黑名单', icon: Ban, roles: ADMIN_ROLES, tenantScoped: true },
             { to: '/app/security/alerts', label: '告警', icon: Bell, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/security/audits', label: '审计', icon: FileClock, roles: ADMIN_ROLES, tenantScoped: true }
+            { to: '/app/security/audits', label: '操作记录', icon: FileClock, roles: ADMIN_ROLES, tenantScoped: true }
         ]
     },
     {
         key: 'operations',
-        label: '运营',
+        label: '业务管理',
         items: [
             { to: '/app/operations/users', label: '用户管理', icon: Users, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/operations/approvals', label: '高风险审批', icon: ClipboardCheck, roles: SUPER_ADMIN_ROLES, tenantScoped: true },
+            { to: '/app/operations/approvals', label: '敏感操作审批', icon: ClipboardCheck, roles: SUPER_ADMIN_ROLES, tenantScoped: true },
             { to: '/app/operations/refunds', label: '退款审核', icon: RefreshCcw, roles: ADMIN_ROLES, tenantScoped: true }
         ]
     },
     {
         key: 'insights',
-        label: '洞察',
+        label: '数据分析',
         items: [
-            { to: '/app/insights/gis', label: 'GIS 空间分析', icon: MapPin, roles: ADMIN_ROLES, tenantScoped: true },
+            { to: '/app/insights/gis', label: '地图分析', icon: MapPin, roles: ADMIN_ROLES, tenantScoped: true },
             { to: '/app/insights/analytics', label: '运行分析', icon: Activity, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/insights/geofences', label: '地理围栏', icon: ShieldCheck, roles: ADMIN_ROLES, tenantScoped: true }
+            { to: '/app/insights/geofences', label: '区域提醒', icon: ShieldCheck, roles: ADMIN_ROLES, tenantScoped: true }
         ]
     }
 ]

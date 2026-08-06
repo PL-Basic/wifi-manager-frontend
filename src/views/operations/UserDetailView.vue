@@ -93,13 +93,13 @@ async function loadEntitlement() {
   errors.entitlement = ''
 
   try {
-    const data = unwrap(await getUserEntitlement(route.params.userId), '权益加载失败')
+    const data = unwrap(await getUserEntitlement(route.params.userId), '上网服务加载失败')
     if (requestGate.isCurrent(version, 'entitlement')) entitlement.value = data
   } catch (cause) {
     if (requestGate.isCurrent(version, 'entitlement')) {
       errors.entitlement = cause instanceof Error && !cause.response
         ? cause.message
-        : getApiErrorMessage(cause, '权益加载失败')
+        : getApiErrorMessage(cause, '上网服务加载失败')
     }
   } finally {
     if (requestGate.isCurrent(version, 'entitlement')) loading.entitlement = false
@@ -141,7 +141,7 @@ async function loadUsage(page = usagePager.current) {
   try {
     const data = unwrap(
       await getUserUsageLogs(route.params.userId, { current: page, size: usagePager.size }),
-      '使用流水加载失败'
+      '使用记录加载失败'
     ) || {}
 
     if (!requestGate.isCurrent(version, 'usage')) return
@@ -153,7 +153,7 @@ async function loadUsage(page = usagePager.current) {
     if (requestGate.isCurrent(version, 'usage')) {
       errors.usage = cause instanceof Error && !cause.response
         ? cause.message
-        : getApiErrorMessage(cause, '使用流水加载失败')
+        : getApiErrorMessage(cause, '使用记录加载失败')
     }
   } finally {
     if (requestGate.isCurrent(version, 'usage')) loading.usage = false
@@ -215,9 +215,9 @@ onMounted(loadAll)
         </article>
 
         <article class="glass-panel operations-panel">
-          <h3>权益</h3>
+          <h3>上网服务</h3>
           <p v-if="errors.entitlement" class="alert error">{{ errors.entitlement }}</p>
-          <StateBlock v-if="loading.entitlement && !entitlement" type="loading" title="正在加载权益" />
+          <StateBlock v-if="loading.entitlement && !entitlement" type="loading" title="正在加载上网服务" />
           <dl v-else class="operations-detail">
             <dt>模式</dt><dd>{{ entitlement?.mode || '-' }}</dd>
             <dt>剩余时长</dt><dd>{{ formatDuration(entitlement?.remainingSeconds) }}</dd>
@@ -257,12 +257,12 @@ onMounted(loadAll)
       </section>
 
       <section class="glass-panel operations-panel operations-table-wrap">
-        <h3>使用流水</h3>
+        <h3>使用记录</h3>
         <p v-if="errors.usage" class="alert error">{{ errors.usage }}</p>
-        <StateBlock v-if="loading.usage && !usage.length" type="loading" title="正在加载使用流水" />
-        <StateBlock v-else-if="!usage.length" title="暂无使用流水" />
+        <StateBlock v-if="loading.usage && !usage.length" type="loading" title="正在加载使用记录" />
+        <StateBlock v-else-if="!usage.length" title="暂无使用记录" />
         <table v-else class="operations-table">
-          <thead><tr><th>ID</th><th>请求号</th><th>Session</th><th>变化秒数</th><th>变化前</th><th>变化后</th><th>原因</th><th>时间</th></tr></thead>
+          <thead><tr><th>记录编号</th><th>操作编号</th><th>连接编号</th><th>时长变化</th><th>变化前</th><th>变化后</th><th>原因</th><th>时间</th></tr></thead>
           <tbody>
             <tr v-for="row in usage" :key="row.id">
               <td>{{ row.id }}</td><td>{{ row.requestId }}</td><td>{{ row.sessionId ?? '-' }}</td><td>{{ row.changeSeconds }}</td>
