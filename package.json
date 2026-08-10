@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "node ./tests/e2e/check-browser.mjs && playwright test"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
@@ -18,7 +21,11 @@
     "vue-router": "^5.0.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-vue": "^6.0.6",
-    "vite": "^8.0.12"
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.11.2",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.10"
   }
 }

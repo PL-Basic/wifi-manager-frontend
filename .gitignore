@@ -10,6 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+coverage
+playwright-report
+test-results
 *.local
 
 # 本机和服务器环境文件不进入仓库，只提交无敏感值的模板。
