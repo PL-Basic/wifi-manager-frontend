@@ -11,6 +11,7 @@ import {
   ensureAccessSession
 } from '@/utils/sessionRefresh'
 import { reportApiConnectivity } from '@/utils/connectivity'
+import { getApiErrorInfo } from '@/utils/apiError'
 
 const http = axios.create({
   baseURL: API_BASE_URL,
@@ -55,20 +56,12 @@ function rejectFailedEnvelope(response) {
   if (Number(body.code) === 200) return response
 
   throw new AxiosError(
-    body.message || '业务请求失败',
+    'API response reported failure',
     'ERR_BAD_RESPONSE',
     response.config,
     response.request,
     response
   )
-}
-
-function failureStatus(error) {
-  const httpStatus = Number(error.response?.status) || 0
-  const businessStatus = Number(error.response?.data?.code) || 0
-  return httpStatus >= 200 && httpStatus < 300 && businessStatus !== 200
-    ? businessStatus
-    : httpStatus || businessStatus
 }
 
 function isRequestTimeout(error) {
@@ -84,42 +77,44 @@ function reportFailure(error) {
     return
   }
 
-  const status = failureStatus(error)
+  const info = getApiErrorInfo(error)
   if (isRequestTimeout(error)) {
     reportApiConnectivity({
       status: 'degraded',
       message: '请求超时，服务响应较慢'
     })
-  } else if (!error.response) {
+  } else if (info.type === 'offline') {
     reportApiConnectivity({
       status: 'unreachable',
       message: '当前设备无法访问服务，请检查网络连接或服务地址'
     })
-  } else if (status >= 500) {
+  } else if (info.status >= 500) {
     reportApiConnectivity({
       status: 'degraded',
-      message: error.response?.data?.message || '服务暂时不可用'
+      message: info.message || '服务暂时不可用'
     })
   } else {
     reportApiConnectivity({ status: 'online', message: '' })
   }
 
-  if (status === 403) {
+  if (info.type === 'permission') {
     sessionStorage.setItem('authMessage', '当前账号没有权限执行该操作')
   }
 }
 
 function expireBrowserSession(error) {
-  clearSession(error?.response?.data?.message || '登录状态已过期，请重新登录')
+  const info = getApiErrorInfo(error, '登录状态已过期，请重新登录')
+  clearSession(info.message || '登录状态已过期，请重新登录')
   redirectToLogin()
 }
 
 async function processResponseFailure(error) {
-  const status = failureStatus(error)
+  const info = getApiErrorInfo(error)
+  const authenticationFailure = info.type === 'authentication'
   const config = error.config || {}
   const protectedRequest = !isPublicAuthRequest(config)
 
-  if (status === 401 && protectedRequest && !config.wifiRetriedAfterRefresh) {
+  if (authenticationFailure && protectedRequest && !config.wifiRetriedAfterRefresh) {
     const failedToken = String(config.headers?.Authorization || '')
       .replace(/^Bearer\s+/i, '')
       || getToken()
@@ -141,7 +136,7 @@ async function processResponseFailure(error) {
       return http.request(nextConfig)
     } catch (refreshError) {
       reportFailure(refreshError)
-      if (failureStatus(refreshError) === 401) {
+      if (getApiErrorInfo(refreshError).type === 'authentication') {
         expireBrowserSession(refreshError)
       }
       return Promise.reject(refreshError)
@@ -149,7 +144,7 @@ async function processResponseFailure(error) {
   }
 
   reportFailure(error)
-  if (status === 401 && protectedRequest) {
+  if (authenticationFailure && protectedRequest) {
     expireBrowserSession(error)
   }
   return Promise.reject(error)
