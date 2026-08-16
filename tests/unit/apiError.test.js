@@ -1,11 +1,6 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { getApiErrorInfo, toUserFacingMessage } from '@/utils/apiError'
-
-const contract = JSON.parse(readFileSync(
-  new URL('../fixtures/contracts/demo-1.4/http-envelope-v1.json', import.meta.url),
-  'utf8'
-))
+import contract from '../fixtures/contracts/demo-1.4/http-envelope-v1.json'
 
 describe('API error utilities', () => {
   it('consumes the frozen http-envelope-v1 fixture', () => {
