@@ -7,6 +7,10 @@ import { authorizePortal, getPortalStatus } from '@/api/sessions'
 import { getApiErrorInfo } from '@/utils/apiError'
 import { resolveCommandStatus, resolveSessionStatus } from '@/config/networkStatus'
 import { formatDateTime, formatDuration } from '@/utils/billing'
+import {
+  createClientRequestIdManager,
+  normalizePortalAuthorizeInput
+} from '@/utils/clientRequestId'
 import { clearSession, getStoredDisplayName, getToken, onSessionChange } from '@/utils/session'
 import {
   forgetActivePortalSession,
@@ -38,6 +42,7 @@ let pollTimer = null
 let stopSessionSync = null
 let activeToken = ''
 const switchingAccount = ref(false)
+const authorizeRequestIds = createClientRequestIdManager(normalizePortalAuthorizeInput)
 
 const contextValid = computed(() => (
   Boolean(form.deviceCode)
@@ -176,7 +181,13 @@ async function submit() {
   stopPolling()
 
   try {
-    const data = unwrap(await authorizePortal({ ...form }), '网络接入请求失败')
+    const data = await authorizeRequestIds.run(
+      form,
+      async (request) => unwrap(
+        await authorizePortal(request),
+        '网络接入请求失败'
+      )
+    )
     status.value = data
     pollCount.value = 0
     replaceSessionQuery(data.sessionId)

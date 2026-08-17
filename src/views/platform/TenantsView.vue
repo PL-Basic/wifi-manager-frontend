@@ -7,6 +7,10 @@ import StateBlock from '@/components/StateBlock.vue'
 import TenantFormModal from '@/components/platform/TenantFormModal.vue'
 import { createPlatformTenant, getPlatformTenants, updatePlatformTenantStatus } from '@/api/tenants'
 import { getApiErrorMessage } from '@/utils/apiError'
+import {
+  createClientRequestIdManager,
+  normalizeTenantCreateInput
+} from '@/utils/clientRequestId'
 import { confirmAction } from '@/composables/useActionDialog'
 import { useRequestGate } from '@/composables/useRequestGate'
 import './platform.css'
@@ -25,6 +29,7 @@ const createError = ref('')
 const busyTenantId = ref('')
 const pager = reactive({ current: 1, size: 20, total: 0 })
 const requestGate = useRequestGate()
+const createRequestIds = createClientRequestIdManager(normalizeTenantCreateInput)
 
 function ensureSuccess(response, fallback) {
   if (response.data?.code !== 200) throw new Error(response.data?.message || fallback)
@@ -91,8 +96,11 @@ async function createTenant(payload) {
   error.value = ''
   message.value = ''
   try {
-    const response = await createPlatformTenant(payload)
-    ensureSuccess(response, '组织创建失败')
+    const response = await createRequestIds.run(payload, async (request) => {
+      const result = await createPlatformTenant(request)
+      ensureSuccess(result, '组织创建失败')
+      return result
+    })
     createOpen.value = false
     message.value = `组织“${response.data.data?.name || payload.name}”已创建`
     await load(1)
