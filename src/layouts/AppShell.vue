@@ -40,6 +40,8 @@ import {
   getStoredTenantContext,
   getStoredUsername,
   getToken,
+  getContextRequestSnapshot,
+  isContextEpochCurrent,
   onSessionChange,
   parseTokenPayload,
   setSession,
@@ -82,6 +84,7 @@ const {
 let activeToken = getToken()
 let stopSessionSync = null
 let stopStepUpSync = null
+let accountLoadVersion = 0
 
 const {
   toasts,
@@ -100,6 +103,8 @@ const roleLabel = computed(() => {
 })
 
 async function loadCurrentAccount() {
+  const version = ++accountLoadVersion
+  const requestEpoch = getContextRequestSnapshot().epoch
   const userId = String(parseTokenPayload()?.sub || '')
   currentUserId.value = userId
   currentContacts.value = []
@@ -107,6 +112,7 @@ async function loadCurrentAccount() {
 
   try {
     const response = await getMyProfile(userId)
+    if (version !== accountLoadVersion || !isContextEpochCurrent(requestEpoch)) return
     if (response.data?.code !== 200 || !response.data.data) return
     const profile = response.data.data
     username.value = profile.username || getStoredUsername()
@@ -119,6 +125,7 @@ async function loadCurrentAccount() {
     ].filter(Boolean)
     accounts.value = rememberAccount(profile)
   } catch {
+    if (version !== accountLoadVersion || !isContextEpochCurrent(requestEpoch)) return
     accounts.value = rememberAccount({
       userId,
       username: getStoredUsername(),
@@ -141,6 +148,19 @@ function closeAccountSwitch() {
   if (switchPending.value) return
   switchTarget.value = null
   switchError.value = ''
+}
+
+function clearTransientContextState() {
+  menuOpen.value = false
+  switchTarget.value = null
+  switchPending.value = false
+  switchError.value = ''
+  contextPending.value = false
+  contextError.value = ''
+  stepUpOpen.value = false
+  stepUpPending.value = false
+  stepUpError.value = ''
+  cancelActionDialog()
 }
 
 async function switchAccount(credentials) {
@@ -279,6 +299,8 @@ function syncSessionFromStorage() {
   if (!nextToken) {
     disconnectAlertSocket()
     clearToasts()
+    clearTransientContextState()
+    sessionRevision.value += 1
     activeToken = ''
     router.replace('/login')
     return
@@ -310,7 +332,7 @@ function syncSessionFromStorage() {
   }
 
   if (identityChanged || contextChanged) {
-    cancelActionDialog()
+    clearTransientContextState()
     sessionRevision.value += 1
     loadCurrentAccount()
   }
@@ -345,8 +367,11 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  accountLoadVersion += 1
   if (stopSessionSync) stopSessionSync()
   if (stopStepUpSync) stopStepUpSync()
+  disconnectAlertSocket()
+  clearTransientContextState()
 })
 </script>
 

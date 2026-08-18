@@ -26,6 +26,7 @@ const tenants = ref([])
 const managedTarget = ref(null)
 const reason = ref('')
 const reasonError = ref('')
+let switcherVersion = 0
 
 const isSuperAdmin = computed(() => props.role === ROLE_SUPER_ADMIN)
 const isPlatform = computed(() => props.context?.contextType === CONTEXT_PLATFORM)
@@ -49,6 +50,7 @@ function isTenantUnavailable(tenant) {
 
 async function loadTenants() {
   if (loading.value) return
+  const version = switcherVersion
   if (isManaged.value) {
     tenants.value = []
     loaded.value = true
@@ -60,16 +62,19 @@ async function loadTenants() {
     const response = isSuperAdmin.value
       ? await getPlatformTenants({ current: 1, size: 100 })
       : await getMyTenants()
+    if (version !== switcherVersion) return
+
     const data = response.data?.data
     tenants.value = isSuperAdmin.value
       ? (Array.isArray(data?.records) ? data.records : [])
       : (Array.isArray(data) ? data : [])
     loaded.value = true
   } catch (cause) {
+    if (version !== switcherVersion) return
     error.value = getApiErrorMessage(cause, '组织列表加载失败')
     loaded.value = true
   } finally {
-    loading.value = false
+    if (version === switcherVersion) loading.value = false
   }
 }
 
@@ -133,11 +138,14 @@ function handleKeydown(event) {
 watch(
   () => `${props.context?.contextType || ''}:${props.context?.tenantId || ''}`,
   () => {
+    switcherVersion += 1
     open.value = false
     managedTarget.value = null
     reason.value = ''
     reasonError.value = ''
     loaded.value = false
+    loading.value = false
+    error.value = ''
     tenants.value = []
   }
 )
@@ -145,6 +153,7 @@ watch(
 document.addEventListener('pointerdown', handleDocumentPointer)
 window.addEventListener('keydown', handleKeydown)
 onBeforeUnmount(() => {
+  switcherVersion += 1
   document.removeEventListener('pointerdown', handleDocumentPointer)
   window.removeEventListener('keydown', handleKeydown)
 })

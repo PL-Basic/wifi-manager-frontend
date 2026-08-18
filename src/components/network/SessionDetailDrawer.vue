@@ -210,6 +210,8 @@ watch(
   ([open]) => {
     drawerVersion += 1
     clearPolling()
+    busy.value = false
+    commandLoading.value = false
     current.value = props.session ? { ...props.session } : null
     commandRows.value = []
     trackedCommand.value = null
@@ -224,6 +226,8 @@ watch(
 onBeforeUnmount(() => {
   drawerVersion += 1
   clearPolling()
+  busy.value = false
+  commandLoading.value = false
 })
 </script>
 

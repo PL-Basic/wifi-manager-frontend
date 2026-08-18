@@ -103,10 +103,13 @@ async function loadHistory() {
   listError.value = ''
 
   try {
-    rows.value = await fetchCommands(version)
+    const records = await fetchCommands(version)
+    if (version !== deviceVersion) return
+
+    rows.value = records
 
     if (currentRequestId.value) {
-      currentRecord.value = rows.value.find(
+      currentRecord.value = records.find(
         (item) => item.requestId === currentRequestId.value
       ) || currentRecord.value
     }
@@ -167,10 +170,10 @@ async function pollRequest(requestId) {
       showMessage('error', '暂未收到设备结果，请稍后刷新操作记录')
     }
   } catch (error) {
-    if (requestId !== currentRequestId.value) return
+    if (version !== deviceVersion || requestId !== currentRequestId.value) return
     showMessage('error', getApiErrorMessage(error, '设备执行状态查询失败'))
   } finally {
-    pollBusy.value = false
+    if (version === deviceVersion) pollBusy.value = false
   }
 }
 
@@ -279,9 +282,18 @@ watch(
   () => {
     deviceVersion += 1
     clearPolling()
+    busy.value = false
+    listLoading.value = false
+    pollBusy.value = false
+    listError.value = ''
+    message.value = ''
     currentRequestId.value = ''
     currentRecord.value = null
     rows.value = []
+    mode.value = 'disconnect'
+    form.mac = ''
+    form.dstIp = ''
+    form.sni = ''
     loadHistory()
   },
   { immediate: true }
@@ -290,6 +302,9 @@ watch(
 onBeforeUnmount(() => {
   deviceVersion += 1
   clearPolling()
+  busy.value = false
+  listLoading.value = false
+  pollBusy.value = false
 })
 </script>
 

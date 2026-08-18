@@ -3,7 +3,9 @@ import { API_BASE_URL } from '@/config/runtime'
 import {
   clearSession,
   getClientInstanceId,
+  getContextRequestSnapshot,
   getToken,
+  isContextEpochCurrent,
   isTokenExpired
 } from '@/utils/session'
 import {
@@ -18,6 +20,76 @@ const http = axios.create({
   timeout: 15000,
   withCredentials: true
 })
+
+function combineAbortSignals(signals) {
+  const activeSignals = signals.filter(Boolean)
+  if (activeSignals.length <= 1) {
+    return {
+      signal: activeSignals[0],
+      cleanup: () => {}
+    }
+  }
+
+  const controller = new AbortController()
+  const listeners = []
+  const abort = (signal) => {
+    if (!controller.signal.aborted) controller.abort(signal.reason)
+  }
+
+  for (const signal of activeSignals) {
+    if (signal.aborted) {
+      abort(signal)
+      break
+    }
+    const listener = () => abort(signal)
+    signal.addEventListener('abort', listener, { once: true })
+    listeners.push([signal, listener])
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      listeners.forEach(([signal, listener]) => {
+        signal.removeEventListener('abort', listener)
+      })
+    }
+  }
+}
+
+function bindRequestContext(config) {
+  if (!Object.prototype.hasOwnProperty.call(config, 'wifiCallerSignal')) {
+    config.wifiCallerSignal = config.signal || null
+  }
+
+  const context = getContextRequestSnapshot()
+  const combined = combineAbortSignals([
+    config.wifiCallerSignal,
+    context.signal
+  ])
+
+  config.signal = combined.signal
+  config.wifiContextEpoch = context.epoch
+  config.wifiAbortCleanup = combined.cleanup
+  return config
+}
+
+function cleanupRequestContext(config) {
+  config?.wifiAbortCleanup?.()
+  if (config) config.wifiAbortCleanup = null
+}
+
+function staleContextError(config) {
+  return new axios.CanceledError(
+    'Request context changed',
+    config,
+    null
+  )
+}
+
+function isStaleRequestContext(config) {
+  return Number.isInteger(config?.wifiContextEpoch)
+    && !isContextEpochCurrent(config.wifiContextEpoch)
+}
 
 function requestPath(config) {
   return String(config?.url || '').split('?')[0]
@@ -109,6 +181,11 @@ function expireBrowserSession(error) {
 }
 
 async function processResponseFailure(error) {
+  cleanupRequestContext(error.config)
+  if (isStaleRequestContext(error.config)) {
+    return Promise.reject(staleContextError(error.config))
+  }
+
   const info = getApiErrorInfo(error)
   const authenticationFailure = info.type === 'authentication'
   const config = error.config || {}
@@ -127,6 +204,9 @@ async function processResponseFailure(error) {
       const nextConfig = {
         ...config,
         wifiRetriedAfterRefresh: true,
+        wifiContextEpoch: undefined,
+        wifiAbortCleanup: null,
+        signal: config.wifiCallerSignal || undefined,
         headers: {
           ...config.headers,
           Authorization: `Bearer ${session.token}`,
@@ -171,11 +251,16 @@ http.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
-  return config
+  return bindRequestContext(config)
 })
 
 http.interceptors.response.use(
   (response) => {
+    cleanupRequestContext(response.config)
+    if (isStaleRequestContext(response.config)) {
+      return Promise.reject(staleContextError(response.config))
+    }
+
     try {
       const accepted = rejectFailedEnvelope(response)
       reportApiConnectivity({ status: 'online', message: '' })

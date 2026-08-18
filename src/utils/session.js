@@ -3,8 +3,34 @@ const AUTH_EVENT_KEY = 'authEvent'
 const LOCAL_SESSION_SYNC_EVENT = 'wifi:session-sync'
 const CLIENT_INSTANCE_KEY = 'wifi:client-instance-id:v1'
 
+function readSecurityContextFingerprint() {
+  if (typeof localStorage === 'undefined') return ''
+
+  return JSON.stringify([
+    localStorage.getItem('token') || '',
+    localStorage.getItem('role') || '',
+    localStorage.getItem('tenantContext') || ''
+  ])
+}
+
+let contextEpoch = 0
+let contextFingerprint = readSecurityContextFingerprint()
+let contextAbortController = new AbortController()
+
+function advanceContextEpochIfChanged() {
+  const nextFingerprint = readSecurityContextFingerprint()
+  if (nextFingerprint === contextFingerprint) return false
+
+  contextFingerprint = nextFingerprint
+  contextEpoch += 1
+  contextAbortController.abort()
+  contextAbortController = new AbortController()
+  return true
+}
+
 function emitAuthEvent(type) {
-  const detail = { type, time: Date.now() }
+  advanceContextEpochIfChanged()
+  const detail = { type, time: Date.now(), contextEpoch }
 
   // 登录页本身负责跳转；其他状态变化还需要通知当前应用壳。
   localStorage.setItem(AUTH_EVENT_KEY, JSON.stringify(detail))
@@ -119,6 +145,19 @@ export function getSessionSnapshot() {
   }
 }
 
+export function getContextRequestSnapshot() {
+  advanceContextEpochIfChanged()
+  return {
+    epoch: contextEpoch,
+    signal: contextAbortController.signal
+  }
+}
+
+export function isContextEpochCurrent(epoch) {
+  advanceContextEpochIfChanged()
+  return epoch === contextEpoch
+}
+
 export function getClientInstanceId() {
   let value = localStorage.getItem(CLIENT_INSTANCE_KEY)
   if (value) return value
@@ -194,6 +233,7 @@ export function onSessionChange(callback) {
   const storageHandler = (event) => {
     if (event.key !== AUTH_EVENT_KEY) return
 
+    advanceContextEpochIfChanged()
     try {
       callback(JSON.parse(event.newValue || '{}'))
     } catch {

@@ -1,8 +1,11 @@
+import { CanceledError } from 'axios'
 import {
   clearSession,
   getClientInstanceId,
+  getContextRequestSnapshot,
   getSessionSnapshot,
   getToken,
+  isContextEpochCurrent,
   isTokenExpired,
   setSession
 } from '@/utils/session'
@@ -121,6 +124,12 @@ function refreshHttpStatus(error) {
   return Number(error?.response?.status || error?.response?.data?.code || 0)
 }
 
+function throwIfContextChanged(epoch) {
+  if (!isContextEpochCurrent(epoch)) {
+    throw new CanceledError('Session context changed')
+  }
+}
+
 function isReplacementAvailable(failedToken) {
   const currentToken = getToken()
   return Boolean(
@@ -144,8 +153,11 @@ async function performRefresh(failedToken) {
     throw new RefreshStepUpRequiredError()
   }
 
+  const requestEpoch = getContextRequestSnapshot().epoch
   try {
     const body = await requestSessionRefresh()
+    throwIfContextChanged(requestEpoch)
+
     if (Number(body?.code) !== 200 || !body?.data?.token) {
       throw new Error(toUserFacingMessage(body?.message || '登录状态更新失败，请重新登录'))
     }
@@ -153,6 +165,8 @@ async function performRefresh(failedToken) {
     setSession(body.data, {}, 'refresh')
     return getSessionSnapshot()
   } catch (error) {
+    throwIfContextChanged(requestEpoch)
+
     if (refreshHttpStatus(error) === 403 && refreshErrorCode(error) === 'REFRESH_STEP_UP_REQUIRED') {
       markStepUpRequired()
       throw new RefreshStepUpRequiredError(error.response)
@@ -201,8 +215,11 @@ export async function restoreAccessSession() {
 }
 
 export async function completeRefreshStepUp(data) {
+  const requestEpoch = getContextRequestSnapshot().epoch
   try {
     const body = await requestRefreshStepUp(data)
+    throwIfContextChanged(requestEpoch)
+
     if (Number(body?.code) !== 200 || !body?.data?.token) {
       if (Number(body?.code) === 401) {
         clearRefreshStepUpRequired()
@@ -217,6 +234,8 @@ export async function completeRefreshStepUp(data) {
     clearRefreshStepUpRequired()
     return getSessionSnapshot()
   } catch (error) {
+    throwIfContextChanged(requestEpoch)
+
     if (refreshHttpStatus(error) === 401) {
       clearRefreshStepUpRequired()
       clearSession(toUserFacingMessage(
