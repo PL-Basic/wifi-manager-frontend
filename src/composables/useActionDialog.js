@@ -40,6 +40,10 @@ export async function confirmAction(options = {}) {
   return result.confirmed
 }
 
+export function cancelActionDialog() {
+  settle({ confirmed: false, value: '' })
+}
+
 export function useActionDialogController() {
   return {
     state: readonly(state),

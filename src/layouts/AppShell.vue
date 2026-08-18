@@ -22,6 +22,7 @@ import {
 } from '@/api/tenants'
 import { useAlertSocket } from '@/composables/useAlertSocket'
 import { useApiConnectivity } from '@/composables/useApiConnectivity'
+import { cancelActionDialog } from '@/composables/useActionDialog'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { forgetAccount, getAccountHistory, rememberAccount } from '@/utils/accountHistory'
 import { revokeActivePortalSession } from '@/utils/portalSession'
@@ -309,6 +310,7 @@ function syncSessionFromStorage() {
   }
 
   if (identityChanged || contextChanged) {
+    cancelActionDialog()
     sessionRevision.value += 1
     loadCurrentAccount()
   }

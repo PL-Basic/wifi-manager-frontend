@@ -20,9 +20,6 @@ import RulesView from '@/views/security/RulesView.vue'
 import BlacklistView from '@/views/security/BlacklistView.vue'
 import AlertsView from '@/views/security/AlertsView.vue'
 import AuditsView from '@/views/security/AuditsView.vue'
-import UsersView from '@/views/operations/UsersView.vue'
-import UserDetailView from '@/views/operations/UserDetailView.vue'
-import ApprovalsView from '@/views/operations/ApprovalsView.vue'
 import RefundReviewView from '@/views/operations/RefundReviewView.vue'
 import EntitlementsView from '@/views/EntitlementsView.vue'
 import PurchaseView from '@/views/PurchaseView.vue'
@@ -131,25 +128,19 @@ const tenantWorkspaceChildren = [
   },
   {
     path: 'operations',
-    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/operations/users`
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/operations/refunds`
   },
   {
     path: 'operations/users',
-    name: 'tenant-operations-users',
-    component: UsersView,
-    meta: { title: '用户管理', breadcrumbs: ['业务管理', '用户管理'], roles: ADMIN_ROLES }
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/operations/refunds`
   },
   {
     path: 'operations/users/:userId',
-    name: 'tenant-operations-user-detail',
-    component: UserDetailView,
-    meta: { title: '用户详情', breadcrumbs: ['业务管理', '用户管理', '用户详情'], roles: ADMIN_ROLES }
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/operations/refunds`
   },
   {
     path: 'operations/approvals',
-    name: 'tenant-operations-approvals',
-    component: ApprovalsView,
-    meta: { title: '敏感操作审批', breadcrumbs: ['业务管理', '敏感操作审批'], roles: SUPER_ADMIN_ROLES }
+    redirect: (to) => `/app/t/${encodeURIComponent(String(to.params.tenantCode))}/operations/refunds`
   },
   {
     path: 'operations/refunds',
@@ -279,7 +270,7 @@ const routes = [
         meta: {
           title: '我的连接',
           breadcrumbs: ['个人', '我的连接'],
-          allowWithoutTenant: true
+          tenantBound: true
         }
       },
       {
@@ -300,7 +291,7 @@ const routes = [
           title: '我的定位',
           breadcrumbs: ['个人', '我的定位'],
           profileSection: 'locations',
-          allowWithoutTenant: true
+          tenantBound: true
         }
       },
       {
@@ -391,37 +382,37 @@ const routes = [
         path: 'entitlements',
         name: 'app-entitlements',
         component: EntitlementsView,
-        meta: { title: '上网服务', breadcrumbs: ['个人', '上网服务'] }
+        meta: { title: '上网服务', breadcrumbs: ['个人', '上网服务'], tenantBound: true }
       },
       {
         path: 'purchase',
         name: 'app-purchase',
         component: PurchaseView,
-        meta: { title: '购买上网时长', breadcrumbs: ['个人', '购买上网时长'] }
+        meta: { title: '购买上网时长', breadcrumbs: ['个人', '购买上网时长'], tenantBound: true }
       },
       {
         path: 'orders',
         name: 'app-orders',
         component: OrdersView,
-        meta: { title: '订单记录', breadcrumbs: ['个人', '订单记录'] }
+        meta: { title: '订单记录', breadcrumbs: ['个人', '订单记录'], tenantBound: true }
       },
       {
         path: 'orders/:orderNo',
         name: 'app-order-detail',
         component: OrderDetailView,
-        meta: { title: '订单详情', breadcrumbs: ['个人', '订单记录', '订单详情'] }
+        meta: { title: '订单详情', breadcrumbs: ['个人', '订单记录', '订单详情'], tenantBound: true }
       },
       {
         path: 'refunds',
         name: 'app-refunds',
         component: RefundsView,
-        meta: { title: '我的退款', breadcrumbs: ['个人', '我的退款'] }
+        meta: { title: '我的退款', breadcrumbs: ['个人', '我的退款'], tenantBound: true }
       },
       {
         path: 'refunds/:refundNo',
         name: 'app-refund-detail',
         component: RefundDetailView,
-        meta: { title: '退款详情', breadcrumbs: ['个人', '我的退款', '退款详情'] }
+        meta: { title: '退款详情', breadcrumbs: ['个人', '我的退款', '退款详情'], tenantBound: true }
       },
       {
         path: 'security/blacklist',
@@ -443,25 +434,19 @@ const routes = [
       },
       {
         path: 'operations',
-        redirect: '/app/operations/users'
+        redirect: '/app/operations/refunds'
       },
       {
         path: 'operations/users',
-        name: 'app-operations-users',
-        component: UsersView,
-        meta: { title: '用户管理', breadcrumbs: ['业务管理', '用户管理'], roles: ADMIN_ROLES }
+        redirect: '/app/operations/refunds'
       },
       {
         path: 'operations/users/:userId',
-        name: 'app-operations-user-detail',
-        component: UserDetailView,
-        meta: { title: '用户详情', breadcrumbs: ['业务管理', '用户管理', '用户详情'], roles: ADMIN_ROLES }
+        redirect: '/app/operations/refunds'
       },
       {
         path: 'operations/approvals',
-        name: 'app-operations-approvals',
-        component: ApprovalsView,
-        meta: { title: '敏感操作审批', breadcrumbs: ['业务管理', '敏感操作审批'], roles: SUPER_ADMIN_ROLES }
+        redirect: '/app/operations/refunds'
       },
       {
         path: 'operations/refunds',
@@ -617,6 +602,10 @@ router.beforeEach(async (to) => {
     if (String(to.params.tenantCode || '') !== String(context.tenantCode || '')) {
       return getHomePath(role, context)
     }
+  }
+
+  if (usableToken && to.meta.tenantBound && !isTenantWorkspaceContext(context)) {
+    return getHomePath(role, context)
   }
 
   if (usableToken && !canAccessRoles(to.meta.roles, role)) {

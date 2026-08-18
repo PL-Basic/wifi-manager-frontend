@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ChevronDown, LogOut, ShieldCheck, Trash2, UserRoundCheck } from 'lucide-vue-next'
-import { ACCOUNT_NAV_ITEMS } from '@/config/navigation'
+import { getAccountNavigationItems } from '@/config/navigation'
 import { resolveAvatarUrl } from '@/utils/avatar'
 
 const props = defineProps({
@@ -11,7 +11,8 @@ const props = defineProps({
   avatar: { type: String, default: '' },
   currentUserId: { type: String, default: '' },
   accounts: { type: Array, default: () => [] },
-  busy: { type: Boolean, default: false }
+  busy: { type: Boolean, default: false },
+  tenantContext: { type: Object, default: null }
 })
 
 const emit = defineEmits(['logout', 'switch-account', 'forget-account'])
@@ -20,6 +21,7 @@ const root = ref(null)
 const trigger = ref(null)
 
 const otherAccounts = computed(() => props.accounts.filter((item) => String(item.userId) !== props.currentUserId))
+const accountNavigationItems = computed(() => getAccountNavigationItems(props.tenantContext))
 const avatarUrl = computed(() => resolveAvatarUrl(props.avatar))
 const initial = computed(() => (props.displayName || props.username || 'U').slice(0, 1).toUpperCase())
 
@@ -114,7 +116,7 @@ onBeforeUnmount(() => {
 
         <nav class="account-menu__links" aria-label="个人页面">
           <RouterLink
-            v-for="item in ACCOUNT_NAV_ITEMS"
+            v-for="item in accountNavigationItems"
             :key="item.to"
             :to="item.to"
             role="menuitem"

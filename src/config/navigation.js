@@ -1,6 +1,6 @@
-import { Activity, Ban, Bell, Building2, ClipboardCheck, CreditCard, FileClock, Gauge, KeyRound, Layers3, MapPin, Radio, ReceiptText, RefreshCcw, Router, ScrollText, ShieldCheck, ShoppingBag, UserRound, Users } from 'lucide-vue-next'
+import { Activity, Ban, Bell, Building2, CreditCard, FileClock, Gauge, KeyRound, Layers3, MapPin, Radio, ReceiptText, RefreshCcw, Router, ScrollText, ShieldCheck, ShoppingBag, UserRound } from 'lucide-vue-next'
 import {ROLE_ADMIN, ROLE_SUPER_ADMIN, canAccessRoles} from '@/utils/access'
-import { withTenantWorkspace } from '@/utils/tenant'
+import { isTenantWorkspaceContext, withTenantWorkspace } from '@/utils/tenant'
 
 const ADMIN_ROLES = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
 const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
@@ -8,14 +8,20 @@ const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
 // 导航只登记当前已有业务，尚未完成的页面不创建假入口。
 export const ACCOUNT_NAV_ITEMS = Object.freeze([
     { to: '/app/account/profile', label: '账户总览', icon: UserRound },
-    { to: '/app/purchase', label: '购买上网时长', icon: ShoppingBag },
-    { to: '/app/entitlements', label: '上网服务', icon: ReceiptText },
-    { to: '/app/orders', label: '订单记录', icon: CreditCard },
-    { to: '/app/refunds', label: '退款记录', icon: RefreshCcw },
+    { to: '/app/purchase', label: '购买上网时长', icon: ShoppingBag, tenantBound: true },
+    { to: '/app/entitlements', label: '上网服务', icon: ReceiptText, tenantBound: true },
+    { to: '/app/orders', label: '订单记录', icon: CreditCard, tenantBound: true },
+    { to: '/app/refunds', label: '退款记录', icon: RefreshCcw, tenantBound: true },
     { to: '/app/account/security', label: '账户安全', icon: KeyRound },
-    { to: '/app/account/connections', label: '我的连接', icon: Activity },
-    { to: '/app/account/location', label: '我的定位', icon: MapPin }
+    { to: '/app/account/connections', label: '我的连接', icon: Activity, tenantBound: true },
+    { to: '/app/account/location', label: '我的定位', icon: MapPin, tenantBound: true }
 ])
+
+export function getAccountNavigationItems(context) {
+    return ACCOUNT_NAV_ITEMS.filter(
+        (item) => !item.tenantBound || isTenantWorkspaceContext(context)
+    )
+}
 
 export const NAVIGATION_GROUPS = [
     {
@@ -57,8 +63,6 @@ export const NAVIGATION_GROUPS = [
         key: 'operations',
         label: '业务管理',
         items: [
-            { to: '/app/operations/users', label: '用户管理', icon: Users, roles: ADMIN_ROLES, tenantScoped: true },
-            { to: '/app/operations/approvals', label: '敏感操作审批', icon: ClipboardCheck, roles: SUPER_ADMIN_ROLES, tenantScoped: true },
             { to: '/app/operations/refunds', label: '退款审核', icon: RefreshCcw, roles: ADMIN_ROLES, tenantScoped: true }
         ]
     },
@@ -81,6 +85,7 @@ export function getNavigationGroups(role, context) {
             ...group,
             items: group.items
                 .filter((item) => canAccessRoles(item.roles, role))
+                .filter((item) => !item.tenantScoped || isTenantWorkspaceContext(context))
                 .map((item) => ({
                     ...item,
                     to: item.tenantScoped ? withTenantWorkspace(item.to, context) : item.to

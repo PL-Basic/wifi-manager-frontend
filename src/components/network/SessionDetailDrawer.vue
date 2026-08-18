@@ -111,8 +111,11 @@ async function loadCommands(trackRevoke = false) {
 
 async function pollRevokeCommand() {
   if (commandLoading.value) return
+  const version = drawerVersion
   pollCount += 1
   await loadCommands(true)
+
+  if (version !== drawerVersion) return
 
   if (pollCount >= 20 && !isCommandTerminal(trackedCommand.value?.status)) {
     clearPolling()
@@ -132,12 +135,19 @@ function startPolling() {
 async function executeRevoke() {
   if (!current.value || Number(current.value.status) === 0 || busy.value) return
 
-  if (!await confirmAction({
+  const version = drawerVersion
+  const sessionId = current.value.sessionId
+  const confirmed = await confirmAction({
     title: '确认断开连接',
-    message: `确定要断开编号为 ${current.value.sessionId} 的连接吗？提交后仍需等待设备确认执行结果。`,
+    message: `确定要断开编号为 ${sessionId} 的连接吗？提交后仍需等待设备确认执行结果。`,
     confirmLabel: '确认断开',
     tone: 'danger'
-  })) {
+  })
+  if (
+    !confirmed
+    || version !== drawerVersion
+    || sessionId !== current.value?.sessionId
+  ) {
     return
   }
 
@@ -149,9 +159,16 @@ async function executeRevoke() {
 
   try {
     const data = readData(
-      await revokeSession(current.value.sessionId),
+      await revokeSession(sessionId),
       '断开连接失败'
     )
+
+    if (
+      version !== drawerVersion
+      || sessionId !== current.value?.sessionId
+    ) {
+      return
+    }
 
     current.value = { ...current.value, ...data }
     emit('updated', current.value)
@@ -166,12 +183,21 @@ async function executeRevoke() {
       startPolling()
     }
   } catch (error) {
+    if (
+      version !== drawerVersion
+      || sessionId !== current.value?.sessionId
+    ) {
+      return
+    }
+
     messageType.value = 'error'
     message.value = error instanceof Error && !error.response
       ? error.message
       : getApiErrorMessage(error, '断开连接失败')
   } finally {
-    busy.value = false
+    if (version === drawerVersion) {
+      busy.value = false
+    }
   }
 }
 

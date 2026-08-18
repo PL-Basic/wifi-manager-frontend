@@ -88,6 +88,7 @@ const emit = defineEmits([
         :current-user-id="currentUserId"
         :accounts="accounts"
         :busy="logoutBusy"
+        :tenant-context="tenantContext"
         @logout="emit('logout')"
         @switch-account="emit('switch-account', $event)"
         @forget-account="emit('forget-account', $event)"

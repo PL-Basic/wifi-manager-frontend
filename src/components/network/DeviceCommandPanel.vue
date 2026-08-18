@@ -187,6 +187,8 @@ function startPolling(requestId) {
 async function submitCommand() {
   if (busy.value || props.disabled || props.retired || !props.deviceCode) return
 
+  const version = deviceVersion
+  const deviceCode = props.deviceCode
   const action = mode.value
   const payload = action === 'disconnect'
     ? { mac: form.mac.trim() }
@@ -206,12 +208,17 @@ async function submitCommand() {
   }
 
   const title = action === 'disconnect' ? '断开联网设备' : '阻断流量'
-  if (!await confirmAction({
+  const confirmed = await confirmAction({
     title: `确认${title}`,
-    message: `将向设备 ${props.deviceCode} 提交“${title}”操作，并持续查询设备执行结果。`,
+    message: `将向设备 ${deviceCode} 提交“${title}”操作，并持续查询设备执行结果。`,
     confirmLabel: '确认提交',
     tone: 'danger'
-  })) {
+  })
+  if (
+    !confirmed
+    || version !== deviceVersion
+    || deviceCode !== props.deviceCode
+  ) {
     return
   }
 
@@ -221,10 +228,17 @@ async function submitCommand() {
 
   try {
     const response = action === 'disconnect'
-      ? await disconnectMac(props.deviceCode, payload)
-      : await blockTraffic(props.deviceCode, payload)
+      ? await disconnectMac(deviceCode, payload)
+      : await blockTraffic(deviceCode, payload)
 
     const data = readBody(response, `${title}请求失败`)
+
+    if (
+      version !== deviceVersion
+      || deviceCode !== props.deviceCode
+    ) {
+      return
+    }
 
     if (!data?.requestId) {
       throw new Error('服务没有返回操作编号')
@@ -233,6 +247,13 @@ async function submitCommand() {
     showMessage('success', `${title}请求已提交，操作编号：${data.requestId}`)
     trackRequest(data.requestId)
   } catch (error) {
+    if (
+      version !== deviceVersion
+      || deviceCode !== props.deviceCode
+    ) {
+      return
+    }
+
     showMessage(
       'error',
       error instanceof Error && !error.response
@@ -240,7 +261,9 @@ async function submitCommand() {
         : getApiErrorMessage(error, `${title}请求失败`)
     )
   } finally {
-    busy.value = false
+    if (version === deviceVersion) {
+      busy.value = false
+    }
   }
 }
 

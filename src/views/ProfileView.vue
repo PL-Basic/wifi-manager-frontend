@@ -19,8 +19,14 @@ import {
   getRefunds
 } from '@/api/entitlements'
 import { resolveAvatarUrl, validateAvatarFile } from '@/utils/avatar'
-import { getStoredUsername, parseTokenPayload, syncSessionUser } from '@/utils/session'
+import {
+  getStoredTenantContext,
+  getStoredUsername,
+  parseTokenPayload,
+  syncSessionUser
+} from '@/utils/session'
 import { getApiErrorMessage } from '@/utils/apiError'
+import { isTenantWorkspaceContext } from '@/utils/tenant'
 import { resolveOrderStatus, resolveRefundStatus } from '@/config/operationStatus'
 import {
   entitlementModeLabel,
@@ -56,6 +62,7 @@ const message = ref('')
 const messageType = ref('success')
 const loadError = ref('')
 const userId = computed(() => parseTokenPayload()?.sub || '')
+const tenantFeaturesAvailable = isTenantWorkspaceContext(getStoredTenantContext())
 
 function unwrap(response, fallback) {
   if (response.data?.code !== 200) throw new Error(response.data?.message || fallback)
@@ -81,13 +88,16 @@ async function loadData() {
   loading.value = true
   loadError.value = ''
 
-  const results = await Promise.allSettled([
-    getMyProfile(userId.value),
-    getMyEntitlement(),
-    getOrders({ current: 1, size: 4 }),
-    getMyUsageLogs({ current: 1, size: 4 }),
-    getRefunds({ current: 1, size: 4 })
-  ])
+  const requests = [getMyProfile(userId.value)]
+  if (tenantFeaturesAvailable) {
+    requests.push(
+      getMyEntitlement(),
+      getOrders({ current: 1, size: 4 }),
+      getMyUsageLogs({ current: 1, size: 4 }),
+      getRefunds({ current: 1, size: 4 })
+    )
+  }
+  const results = await Promise.allSettled(requests)
   const errors = []
 
   try {
@@ -100,6 +110,12 @@ async function loadData() {
     }
   } catch (cause) {
     errors.push(readableError(cause, '个人资料加载失败'))
+  }
+
+  if (!tenantFeaturesAvailable) {
+    loadError.value = Array.from(new Set(errors)).join('；')
+    loading.value = false
+    return
   }
 
   try {
@@ -204,7 +220,7 @@ onMounted(loadData)
     <p v-if="loadError" class="alert error">{{ loadError }}</p>
     <p v-if="message" :class="['alert', messageType]">{{ message }}</p>
 
-    <section class="billing-summary" aria-label="账户上网服务摘要">
+    <section v-if="tenantFeaturesAvailable" class="billing-summary" aria-label="账户上网服务摘要">
       <article class="billing-metric"><span>剩余网络时长</span><strong>{{ formatDuration(account.entitlement?.remainingSeconds) }}</strong></article>
       <article class="billing-metric"><span>服务类型</span><strong>{{ entitlementModeLabel(account.entitlement?.mode) }}</strong></article>
       <article class="billing-metric"><span>服务状态</span><strong>{{ account.entitlement ? entitlementStatusLabel(account.entitlement.status) : '-' }}</strong></article>
@@ -239,17 +255,17 @@ onMounted(loadData)
       <article class="glass-panel billing-panel">
         <header class="billing-section-heading"><div><p class="page-kicker">账户服务</p><h3>常用操作</h3></div></header>
         <nav class="billing-link-list" aria-label="账户服务">
-          <RouterLink class="billing-link" to="/app/purchase"><span><ShoppingBag :size="18" /><span>购买上网时长<small>选择固定时长、按月服务或自定义金额</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/entitlements"><span><ReceiptText :size="18" /><span>上网服务与使用记录<small>查看购买记录和每次时长变化</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/orders"><span><CreditCard :size="18" /><span>订单记录<small>{{ account.orderTotal }} 笔订单</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/refunds"><span><RefreshCcw :size="18" /><span>退款记录<small>{{ account.refundTotal }} 笔退款</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink v-if="tenantFeaturesAvailable" class="billing-link" to="/app/purchase"><span><ShoppingBag :size="18" /><span>购买上网时长<small>选择固定时长、按月服务或自定义金额</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink v-if="tenantFeaturesAvailable" class="billing-link" to="/app/entitlements"><span><ReceiptText :size="18" /><span>上网服务与使用记录<small>查看购买记录和每次时长变化</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink v-if="tenantFeaturesAvailable" class="billing-link" to="/app/orders"><span><CreditCard :size="18" /><span>订单记录<small>{{ account.orderTotal }} 笔订单</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink v-if="tenantFeaturesAvailable" class="billing-link" to="/app/refunds"><span><RefreshCcw :size="18" /><span>退款记录<small>{{ account.refundTotal }} 笔退款</small></span></span><ChevronRight :size="18" /></RouterLink>
           <RouterLink class="billing-link" to="/app/account/security"><span><KeyRound :size="18" /><span>账户安全<small>管理密码、社交身份和删除申请</small></span></span><ChevronRight :size="18" /></RouterLink>
-          <RouterLink class="billing-link" to="/app/account/location"><span><MapPin :size="18" /><span>我的定位<small>查看个人定位授权和历史</small></span></span><ChevronRight :size="18" /></RouterLink>
+          <RouterLink v-if="tenantFeaturesAvailable" class="billing-link" to="/app/account/location"><span><MapPin :size="18" /><span>我的定位<small>查看个人定位授权和历史</small></span></span><ChevronRight :size="18" /></RouterLink>
         </nav>
       </article>
     </section>
 
-    <section class="billing-records" aria-label="账户近期记录">
+    <section v-if="tenantFeaturesAvailable" class="billing-records" aria-label="账户近期记录">
       <article class="glass-panel billing-panel">
         <header class="billing-section-heading"><div><h3>近期订单</h3><p>最近 {{ account.orders.length }} 条</p></div><RouterLink to="/app/orders">全部订单</RouterLink></header>
         <ul v-if="account.orders.length" class="billing-record-list">
